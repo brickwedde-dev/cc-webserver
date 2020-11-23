@@ -48,32 +48,35 @@ module.exports = {
                         let what = requrl.substr(map.urlprefix.length + 1);
                         if (what.substring(0, 14) == "sse/connection") {
                             let fnname = what.substring(4);
+                            var promise = Promise.resolve();
                             if (map.apiobject.checksession) {
                                 let user = {};
-                                if (!map.apiobject.checksession(user, fnname)) {
-                                    res.writeHead(403);
-                                    res.end("User unauthorized by apiobject");
-                                    return;
-                                }
+                                promise = map.apiobject.checksession(req, res, user, fnname);
                             }
-        
-                            res.writeHead(200, {
-                                'Content-Type': 'text/event-stream',
-                                'Cache-Control': 'no-cache',
-                                'Connection': 'keep-alive',
-                            });
-        
-                            if (!map.apiobject.__internal_sseconnections) {
-                                map.apiobject.__internal_sseconnections = [];
-                            }
-                            let obj = {req, res};
-                            map.apiobject.__internal_sseconnections.push(obj);
-        
-                            req.on('close', () => {
-                                var index = map.apiobject.__internal_sseconnections.indexOf(obj);
-                                if (index >= 0) {
-                                    map.apiobject.__internal_sseconnections.splice(index, 1);
+
+                            promise.then(() => {
+                                res.writeHead(200, {
+                                    'Content-Type': 'text/event-stream',
+                                    'Cache-Control': 'no-cache',
+                                    'Connection': 'keep-alive',
+                                });
+            
+                                if (!map.apiobject.__internal_sseconnections) {
+                                    map.apiobject.__internal_sseconnections = [];
                                 }
+                                let obj = {req, res};
+                                map.apiobject.__internal_sseconnections.push(obj);
+            
+                                req.on('close', () => {
+                                    var index = map.apiobject.__internal_sseconnections.indexOf(obj);
+                                    if (index >= 0) {
+                                        map.apiobject.__internal_sseconnections.splice(index, 1);
+                                    }
+                                });
+                            })
+                            .catch(() => {
+                                res.writeHead(500);
+                                res.end("");
                             });
                             return;
                         }
@@ -129,19 +132,35 @@ module.exports = {
                                         throw "Function " + fnname + " not found";
                                     }
         
+                                    var promise = Promise.resolve();
                                     if (map.apiobject.checksession) {
-                                        var user = {};
-                                        if (!map.apiobject.checksession(user, fnname)) {
-                                            res.writeHead(403);
-                                            res.end("User unauthorized by apiobject");
-                                            return;
-                                        }
+                                        let user = {};
+                                        promise = map.apiobject.checksession(req, res, user, fnname);
                                     }
         
-                                    var result = map.apiobject[fnname].apply(map.apiobject, parameters);
-                                    res.setHeader("Content-Type", "application/json");
-                                    res.writeHead(200);
-                                    res.end(JSON.stringify(result));
+                                    promise.then(() => {
+                                        var result = map.apiobject[fnname].apply(map.apiobject, parameters);
+                                        if (result instanceof Promise) {
+                                            result
+                                            .then((x) => {
+                                                res.setHeader("Content-Type", "application/json");
+                                                res.writeHead(200);
+                                                res.end(JSON.stringify(x));
+                                            })
+                                            .catch((e) => {
+                                                res.writeHead(500);
+                                                res.end("Catch on function: " + e);
+                                            });
+                                        } else {
+                                            res.setHeader("Content-Type", "application/json");
+                                            res.writeHead(200);
+                                            res.end(JSON.stringify(result));
+                                        }
+                                    })
+                                    .catch(() => {
+                                        res.writeHead(403);
+                                        res.end("User unauthorized by apiobject");
+                                    });
                                     return;
                                 }
                                 throw "Unknown what";
