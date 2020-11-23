@@ -48,10 +48,11 @@ module.exports = {
                         let what = requrl.substr(map.urlprefix.length + 1);
                         if (what.substring(0, 14) == "sse/connection") {
                             let fnname = what.substring(4);
+                            var oInfo = {};
                             var promise = Promise.resolve();
                             if (map.apiobject.checksession) {
                                 let user = {};
-                                promise = map.apiobject.checksession(req, res, user, fnname);
+                                promise = map.apiobject.checksession(oInfo, req, res, user, fnname);
                             }
 
                             promise.then(() => {
@@ -132,11 +133,13 @@ module.exports = {
                                         throw "Function " + fnname + " not found";
                                     }
         
+                                    var oInfo = {};
                                     var promise = Promise.resolve();
                                     if (map.apiobject.checksession) {
                                         let user = {};
-                                        promise = map.apiobject.checksession(req, res, user, fnname);
+                                        promise = map.apiobject.checksession(oInfo, req, res, user, fnname);
                                     }
+                                    parameters.unshift(oInfo);
         
                                     promise.then(() => {
                                         var result = map.apiobject[fnname].apply(map.apiobject, parameters);
@@ -157,9 +160,9 @@ module.exports = {
                                             res.end(JSON.stringify(result));
                                         }
                                     })
-                                    .catch(() => {
+                                    .catch((w) => {
                                         res.writeHead(403);
-                                        res.end("User unauthorized by apiobject");
+                                        res.end("User unauthorized by apiobject: " + w);
                                     });
                                     return;
                                 }
