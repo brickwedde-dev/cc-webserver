@@ -47,7 +47,7 @@ module.exports = {
                     if (map.apiobject) {
                         let what = requrl.substr(map.urlprefix.length + 1);
                         if (what.substring(0, 14) == "sse/connection") {
-                            let fnname = what.substring(4);
+                            let fnname = "__SSE__";
                             var oInfo = {};
                             var promise = Promise.resolve();
                             if (map.apiobject.checksession) {
@@ -75,9 +75,9 @@ module.exports = {
                                     }
                                 });
                             })
-                            .catch(() => {
+                            .catch((e) => {
                                 res.writeHead(500);
-                                res.end("");
+                                res.end("" + e);
                             });
                             return;
                         }
