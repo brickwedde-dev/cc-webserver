@@ -30,6 +30,7 @@ module.exports = {
                 }
                 if (map.urlprefix && requrl.substring(0, map.urlprefix.length) == map.urlprefix) {
                     if (map.staticfile) {
+                        console.log(requrl + " has staticfile");
                         var file = requrl.substring(map.urlprefix.length);
                         file = file.replace(/\\.\\./g, "__");
                         fs.readFile(process.cwd() + "/" + map.staticfile + "/" + file)
@@ -39,12 +40,37 @@ module.exports = {
                             res.end(contents);
                         })
                         .catch(err => {
-                            res.writeHead(500);
-                            res.end(""+err);
+                            res.writeHead(404);
+                            res.end("");
                         });
                         return;
                     }
+
+                    if (map.handleobject) {
+                        console.log(requrl + " has handleobject");
+                        var oInfo = {};
+                        var promise = Promise.resolve();
+                        if (map.handleobject.checksession) {
+                            let user = {};
+                            promise = map.handleobject.checksession(oInfo, req, res, user, fnname);
+                        }
+
+                        promise.then(() => {
+                            if (map.handleobject.handlerequest) {
+                                map.handleobject.handlerequest(oInfo, req, res, requrl);
+                            } else {
+                                res.writeHead(404);
+                            }
+                        })
+                        .catch((e) => {
+                            res.writeHead(500);
+                            res.end("" + e);
+                        });
+                        return;
+                    }
+
                     if (map.apiobject) {
+                        console.log(requrl + " has apiobject");
                         let what = requrl.substr(map.urlprefix.length + 1);
                         if (what.substring(0, 14) == "sse/connection") {
                             let fnname = "__SSE__";
