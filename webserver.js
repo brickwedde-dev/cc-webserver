@@ -1,8 +1,10 @@
 const http = require("http");
+const https = require("https");
 const fs = require('fs').promises;
+const fs1 = require('fs');
 
 module.exports = {
-    createWebserver : function (host, port, mapping) {
+    createWebserver : function (host, port, mapping, sslport) {
         const requestListener = function (req, res) {
             var requrl = req.url;
             var i = requrl.indexOf("?");
@@ -209,10 +211,22 @@ module.exports = {
             res.writeHead(404);
             res.end("Not found!");
         };
-        const server = http.createServer(requestListener);
-        server.listen(port, host, () => {
+        if (port > 0) {
+	  const server = http.createServer(requestListener);
+       	  server.listen(port, host, () => {
             console.log(`Server is running on http://${host}:${port}`);
-        });
+          });
+        }
+        if (sslport > 0) {
+          const options = {
+	    key: fs1.readFileSync('key.pem'),
+	    cert: fs1.readFileSync('cert.pem')
+	  };
+          const sserver = https.createServer(options, requestListener);
+          sserver.listen(sslport, host, () => {
+            console.log(`Server is running on https://${host}:${port}`);
+          });
+       }
     }
 };
   
