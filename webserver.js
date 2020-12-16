@@ -5,6 +5,30 @@ const fs1 = require('fs');
 
 module.exports = {
     createWebserver : function (host, port, mapping, sslport) {
+        const mime = (filename) => {
+            var mapping = {
+                "html" : "text/html",
+                "txt" : "text/plain",
+                "gif" : "image/gif",
+                "png" : "image/png",
+                "jpeg" : "image/jpeg",
+                "jpg" : "image/jpeg",
+                "pdf" : "application/pdf",
+                "zip" : "application/zip",
+                "mp4" : "video/mp4",
+                "mpeg" : "video/mpeg",
+            };
+            filename = filename.toLowerCase();
+            var i = filename.lastIndexOf(".");
+            if (i > 0) {
+                var extension = filename.substring(i + 1);
+                if (mapping[extension]) {
+                    return mapping[extension];
+                }
+            }
+            return "application/octet-stream";
+        };
+
         const requestListener = function (req, res) {
             var requrl = req.url;
             var i = requrl.indexOf("?");
@@ -15,35 +39,53 @@ module.exports = {
                 if(map.hosts.length > 0 && map.hosts.lastIndexOf (req.headers.host) < 0) {
                     continue;
                 }
-                if (map.exacturl && requrl == map.exacturl) {
-                    if (map.staticfile) {
-                        fs.readFile(process.cwd() + "/" + map.staticfile)
-                        .then(contents => {
-                            res.setHeader("Content-Type", "text/html");
-                            res.writeHead(200);
-                            res.end(contents);
-                        })
-                        .catch(err => {
-                            res.writeHead(500);
-                            res.end(""+err);
+                var bExact = map.exacturl && requrl == map.exacturl;
+                var bPrefix = map.urlprefix && requrl.substring(0, map.urlprefix.length) == map.urlprefix;
+
+                if (bExact || bPrefix) {
+                    if (map.uploadfolder) {
+                        console.log(requrl + " has uploadfolder");
+                        if (map.apiobject && map.apiobject.checksession) {
+                            let user = {};
+                            promise = map.apiobject.checksession({}, req, res, user, "");
+                        }
+    
+                        var body = ''
+                        req.on('data', function(data) {
+                            body += data
                         });
-                    }
-                    return;
-                }
-                if (map.urlprefix && requrl.substring(0, map.urlprefix.length) == map.urlprefix) {
-                    if (map.staticfile) {
-                        console.log(requrl + " has staticfile");
-                        var file = requrl.substring(map.urlprefix.length);
-                        file = file.replace(/\\.\\./g, "__");
-                        fs.readFile(process.cwd() + "/" + map.staticfile + "/" + file)
-                        .then(contents => {
-                            res.setHeader("Content-Type", "text/html");
-                            res.writeHead(200);
-                            res.end(contents);
-                        })
-                        .catch(err => {
-                            res.writeHead(404);
-                            res.end("");
+                        req.on('end', function() {
+                            var json = null;
+                            try {
+                                json = body ? JSON.parse(body) : null;
+                            } catch (e) {
+                            }
+                            if (!json || !json.filename || !json.content) {
+                                res.writeHead(500);
+                                res.end("");
+                            }
+                            var filename = json.filename;
+                            filename = filename.replace(/\.\./g, "__");
+                            filename = filename.replace(/\//g, "_");
+                            filename = filename.replace(/\\/g, "_");
+                            var b64 = json.content;
+                            if (b64.substring(0, 5) == "data:") {
+                                var b64index = b64.indexOf("base64,");
+                                if (b64index >= 0) {
+                                    b64 = b64.substring(b64index + 7);
+                                }
+                            }
+                            var content = Buffer.from(b64, "base64");
+    
+                            fs.writeFile(process.cwd() + "/" + map.uploadfolder + "/" + filename, content)
+                            .then(() => {
+                                res.writeHead(200);
+                                res.end("");
+                            })
+                            .catch((e) => {
+                                res.writeHead(500);
+                                res.end("" + e);
+                            });
                         });
                         return;
                     }
@@ -67,6 +109,41 @@ module.exports = {
                         .catch((e) => {
                             res.writeHead(500);
                             res.end("" + e);
+                        });
+                        return;
+                    }
+                }
+
+                if (bExact) {
+                    if (map.staticfile) {
+                        fs.readFile(process.cwd() + "/" + map.staticfile)
+                        .then(contents => {
+                            res.setHeader("Content-Type", mime(map.staticfile));
+                            res.writeHead(200);
+                            res.end(contents);
+                        })
+                        .catch(err => {
+                            res.writeHead(500);
+                            res.end(""+err);
+                        });
+                    }
+                    return;
+                }
+
+                if (bPrefix) {
+                    if (map.staticfile) {
+                        console.log(requrl + " has staticfile");
+                        var file = requrl.substring(map.urlprefix.length);
+                        file = file.replace(/\\.\\./g, "__");
+                        fs.readFile(process.cwd() + "/" + map.staticfile + "/" + file)
+                        .then(contents => {
+                            res.setHeader("Content-Type", mime(file));
+                            res.writeHead(200);
+                            res.end(contents);
+                        })
+                        .catch(err => {
+                            res.writeHead(404);
+                            res.end("");
                         });
                         return;
                     }
