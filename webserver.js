@@ -118,9 +118,15 @@ module.exports = {
                     if (map.staticfile) {
                         fs.readFile(process.cwd() + "/" + map.staticfile)
                         .then(contents => {
-                            res.setHeader("Content-Type", mime(map.staticfile));
-                            res.writeHead(200);
-                            res.end(contents);
+                            fs.stat(process.cwd() + "/" + map.staticfile)
+                            .then((stats) => {
+                                res.setHeader("Content-Type", mime(map.staticfile));
+                                res.setHeader("Last-Modified", new Date(stats.mtime));
+                                res.setHeader("Cache-Control", "max-age=600");
+                                res.setHeader("eTag", "\"" + stats.mtime + "\"");
+                                res.writeHead(200);
+                                res.end(contents);
+                            });
                         })
                         .catch(err => {
                             res.writeHead(500);
@@ -137,9 +143,15 @@ module.exports = {
                         file = file.replace(/\\.\\./g, "__");
                         fs.readFile(process.cwd() + "/" + map.staticfile + "/" + file)
                         .then(contents => {
-                            res.setHeader("Content-Type", mime(file));
-                            res.writeHead(200);
-                            res.end(contents);
+                            fs.stat(process.cwd() + "/" + map.staticfile + "/" + file)
+                            .then((stats) => {
+                                res.setHeader("Content-Type", mime(file));
+                                res.setHeader("Last-Modified", new Date(stats.mtime));
+                                res.setHeader("Cache-Control", "max-age=600");
+                                res.setHeader("eTag", "\"" + stats.mtime + "\"");
+                                res.writeHead(200);
+                                res.end(contents);
+                            });
                         })
                         .catch(err => {
                             res.writeHead(404);
