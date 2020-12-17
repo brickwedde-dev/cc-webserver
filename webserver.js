@@ -8,6 +8,8 @@ module.exports = {
         const mime = (filename) => {
             var mapping = {
                 "html" : "text/html",
+                "js" : "text/javascript",
+                "css" : "text/css",
                 "txt" : "text/plain",
                 "gif" : "image/gif",
                 "png" : "image/png",
