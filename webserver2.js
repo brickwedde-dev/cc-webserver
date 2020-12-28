@@ -271,8 +271,8 @@ module.exports = {
                                               res.end(JSON.stringify(x));
                                           })
                                           .catch((e) => {
-                                              res.writeHead(500);
                                               res.setHeader("X-Exception", "" + e);
+                                              res.writeHead(500);
                                               res.end(e);
                                           });
                                       } else {
