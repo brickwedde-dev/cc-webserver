@@ -271,6 +271,7 @@ module.exports = {
                                             })
                                             .catch((e) => {
                                                 res.writeHead(500);
+                                                res.setHeader("X-Exception", "" + e);
                                                 res.end(e);
                                             });
                                         } else {
