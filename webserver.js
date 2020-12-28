@@ -271,7 +271,7 @@ module.exports = {
                                             })
                                             .catch((e) => {
                                                 res.writeHead(500);
-                                                res.end("Catch on function: " + e);
+                                                res.end(e);
                                             });
                                         } else {
                                             res.setHeader("Content-Type", "application/json");
