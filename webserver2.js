@@ -314,8 +314,8 @@ module.exports = {
         };
 
         if (key && cert) {
-          options.key = fs1.readFileSync('key.pem'),
-          options.cert = fs1.readFileSync('cert.pem')
+          options.key = fs1.readFileSync(key),
+          options.cert = fs1.readFileSync(cert)
         }
 
         var server = null;
