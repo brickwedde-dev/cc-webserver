@@ -39,7 +39,7 @@ module.exports = {
               requrl = requrl.substring(0, i);
           }
           for (var map of urlmapping) {
-              if(map.hosts.length > 0 && map.hosts.lastIndexOf (req.headers.host) < 0) {
+              if(map.hosts.length > 0 && map.hosts.lastIndexOf (req.headers.host) < 0 && map.hosts.lastIndexOf (req.headers[":authority"]) < 0) {
                   continue;
               }
               var bExact = map.exacturl && requrl == map.exacturl;
