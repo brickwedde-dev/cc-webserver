@@ -33,7 +33,7 @@ module.exports = {
       };
 
       const requestListener = function (req, res) {
-          var requrl = req.url;
+          var requrl = decodeURIComponent(req.url);
           var i = requrl.indexOf("?");
           if (i >= 0) {
               requrl = requrl.substring(0, i);
@@ -179,7 +179,6 @@ module.exports = {
                               res.writeHead(200, {
                                   'Content-Type': 'text/event-stream',
                                   'Cache-Control': 'no-cache',
-                                  'Connection': 'keep-alive',
                               });
           
                               if (!map.apiobject.__internal_sseconnections) {
@@ -273,7 +272,7 @@ module.exports = {
                                           .catch((e) => {
                                               res.setHeader("X-Exception", "" + e);
                                               res.writeHead(500);
-                                              res.end(e);
+                                              res.end("" + e);
                                           });
                                       } else {
                                           res.setHeader("Content-Type", "application/json");
@@ -314,8 +313,8 @@ module.exports = {
         };
 
         if (key && cert) {
-          options.key = fs1.readFileSync('key.pem'),
-          options.cert = fs1.readFileSync('cert.pem')
+          options.key = fs1.readFileSync(key),
+          options.cert = fs1.readFileSync(cert)
         }
 
         var server = null;
