@@ -195,24 +195,34 @@ module.exports = {
                               });
                           })
                           .catch((e) => {
-                              res.writeHead(500);
-                              res.end("" + e);
+                            res.writeHead(500, {
+                                'Content-Type': "text/plain",
+                                'Cache-Control': 'no-cache',
+                                'Connection': 'keep-alive',
+                            });
+                            res.end("" + e);
                           });
                           return;
                       }
                       
                       var body = ''
                       req.on('data', function(data) {
-                          body += data
+                        console.log(requrl + " on data");
+                        body += data
                       })
                       req.on('end', function() {
-                          var parameters = [];
+                        console.log(requrl + " on end");
+                        var parameters = [];
                           try {
                               if (body) {
                                   parameters = JSON.parse(body);
                               }
                           } catch (e) {
-                              res.writeHead(500);
+                              res.writeHead(500, {
+                                  'Content-Type': "text/plain",
+                                  'Cache-Control': 'no-cache',
+                                  'Connection': 'keep-alive',
+                              });
                               res.end("Failed on body: " + body);
                               return;
                           }
@@ -265,32 +275,50 @@ module.exports = {
                                       if (result instanceof Promise) {
                                           result
                                           .then((x) => {
-                                              res.setHeader("Content-Type", "application/json");
-                                              res.writeHead(200);
+                                            res.writeHead(200, {
+                                                'Content-Type': "application/json",
+                                                'Cache-Control': 'no-cache',
+                                                'Connection': 'keep-alive',
+                                            });
                                               res.end(JSON.stringify(x));
                                           })
                                           .catch((e) => {
-                                              res.setHeader("X-Exception", "" + e);
-                                              res.writeHead(500);
+                                            res.writeHead(500, {
+                                                'Content-Type': "text/plain",
+                                                'Cache-Control': 'no-cache',
+                                                'Connection': 'keep-alive',
+                                                "X-Exception": "" + e,
+                                            });
                                               res.end("" + e);
                                           });
                                       } else {
-                                          res.setHeader("Content-Type", "application/json");
-                                          res.writeHead(200);
-                                          res.end(JSON.stringify(result));
+                                        res.writeHead(200, {
+                                            'Content-Type': "application/json",
+                                            'Cache-Control': 'no-cache',
+                                            'Connection': 'keep-alive',
+                                        });
+                                        res.end(JSON.stringify(result));
                                       }
                                   })
                                   .catch((w) => {
-                                      res.writeHead(403);
-                                      res.end("User unauthorized by apiobject: " + w);
+                                    res.writeHead(403, {
+                                        'Content-Type': "text/plain",
+                                        'Cache-Control': 'no-cache',
+                                        'Connection': 'keep-alive',
+                                    });
+                                    res.end("User unauthorized by apiobject: " + w);
                                   });
                                   return;
                               }
                               throw "Unknown what";
                           } catch (e) {
-                              res.writeHead(500);
-                              res.end("Failed on function: " + e);
-                              return;
+                            res.writeHead(500, {
+                                'Content-Type': "text/plain",
+                                'Cache-Control': 'no-cache',
+                                'Connection': 'keep-alive',
+                            });
+                            res.end("Failed on function: " + e);
+                            return;
                           }
                       })
                       return;
