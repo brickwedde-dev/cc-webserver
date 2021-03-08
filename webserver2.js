@@ -198,7 +198,6 @@ module.exports = {
                             res.writeHead(500, {
                                 'Content-Type': "text/plain",
                                 'Cache-Control': 'no-cache',
-                                'Connection': 'keep-alive',
                             });
                             res.end("" + e);
                           });
@@ -214,16 +213,25 @@ module.exports = {
                         console.log(requrl + " on end");
                         var parameters = [];
                           try {
+                              if (!body) {
+                                var url = new URL(req.url, 'http://example.com');
+                                if (url.search.length > 1) {
+                                    var buf = Buffer.from(url.search.substring(1), 'base64');
+                                    body = buf.toString();
+                                }
+                              }
                               if (body) {
                                   parameters = JSON.parse(body);
+                                  if (!parameters || typeof parameters != "object") {
+                                      throw `Invalid ${JSON.stringify(parameters)} ${typeof parameters}`;
+                                  }
                               }
                           } catch (e) {
                               res.writeHead(500, {
                                   'Content-Type': "text/plain",
                                   'Cache-Control': 'no-cache',
-                                  'Connection': 'keep-alive',
                               });
-                              res.end("Failed on body: " + body);
+                              res.end("Failed on body: " + body + ", " + e);
                               return;
                           }
                           try {
@@ -275,38 +283,66 @@ module.exports = {
                                       if (result instanceof Promise) {
                                           result
                                           .then((x) => {
+                                              if (oInfo.htmltemplate) {
+                                                res.writeHead(200, {
+                                                    'Content-Type': "text/html",
+                                                    'Cache-Control': 'no-cache',
+                                                });
+                                                res.end(oInfo.htmltemplate.replace(/@@/, x));
+                                              } else {
+                                                res.writeHead(200, {
+                                                    'Content-Type': "application/json",
+                                                    'Cache-Control': 'no-cache',
+                                                });
+                                                res.end(JSON.stringify(x));
+                                              }
+                                          })
+                                          .catch((e) => {
+                                              if (oInfo.htmltemplate) {
+                                                res.writeHead(500, {
+                                                    'Content-Type': "text/html",
+                                                    'Cache-Control': 'no-cache',
+                                                });
+                                                res.end(oInfo.htmltemplate.replace(/@@/, e));
+                                              } else {
+                                                res.writeHead(500, {
+                                                    'Content-Type': "text/plain",
+                                                    'Cache-Control': 'no-cache',
+                                                    "X-Exception": "" + e,
+                                                });
+                                                res.end("" + e);
+                                              }
+                                          });
+                                      } else {
+                                        if (oInfo.htmltemplate) {
+                                            res.writeHead(200, {
+                                                'Content-Type': "text/html",
+                                                'Cache-Control': 'no-cache',
+                                            });
+                                            res.end(oInfo.htmltemplate.replace(/@@/, result));
+                                        } else {
                                             res.writeHead(200, {
                                                 'Content-Type': "application/json",
                                                 'Cache-Control': 'no-cache',
-                                                'Connection': 'keep-alive',
                                             });
-                                              res.end(JSON.stringify(x));
-                                          })
-                                          .catch((e) => {
-                                            res.writeHead(500, {
-                                                'Content-Type': "text/plain",
-                                                'Cache-Control': 'no-cache',
-                                                'Connection': 'keep-alive',
-                                                "X-Exception": "" + e,
-                                            });
-                                              res.end("" + e);
-                                          });
-                                      } else {
-                                        res.writeHead(200, {
-                                            'Content-Type': "application/json",
-                                            'Cache-Control': 'no-cache',
-                                            'Connection': 'keep-alive',
-                                        });
-                                        res.end(JSON.stringify(result));
+                                            res.end(JSON.stringify(result));
+                                        }
                                       }
                                   })
                                   .catch((w) => {
-                                    res.writeHead(403, {
-                                        'Content-Type': "text/plain",
-                                        'Cache-Control': 'no-cache',
-                                        'Connection': 'keep-alive',
-                                    });
-                                    res.end("User unauthorized by apiobject: " + w);
+                                    if (oInfo.htmltemplate) {
+                                        res.writeHead(403, {
+                                            'Content-Type': "text/html",
+                                            'Cache-Control': 'no-cache',
+                                        });
+                                        res.end(oInfo.htmltemplate.replace(/@@/, "User unauthorized by apiobject: " + w));
+                                    } else {
+                                        res.writeHead(403, {
+                                            'Content-Type': "text/plain",
+                                            'Cache-Control': 'no-cache',
+                                        });
+                                        res.end("User unauthorized by apiobject: " + w);
+                                    }
                                   });
                                   return;
                               }
@@ -315,7 +351,6 @@ module.exports = {
                             res.writeHead(500, {
                                 'Content-Type': "text/plain",
                                 'Cache-Control': 'no-cache',
-                                'Connection': 'keep-alive',
                             });
                             res.end("Failed on function: " + e);
                             return;
