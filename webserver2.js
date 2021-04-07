@@ -4,6 +4,18 @@ const fs = require('fs').promises;
 const fs1 = require('fs');
 
 module.exports = {
+    createRedirectServer : function (host, port) {
+        var redirectorserver = http.createServer({}, (req, res) => {
+            res.setHeader("Location", 'https://' + req.headers.host + req.url);
+            res.writeHead(301);
+            res.end();
+        });
+        redirectorserver.listen(80, "", () => {
+            console.log(`Redirector is running on http://${host}:${port}`);
+        });
+        return {redirectorserver};
+    },
+
     createWebserver : function (host, port, key, cert, urlmapping) {
       var mimemapping = {
         "html" : "text/html",
