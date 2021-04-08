@@ -137,8 +137,12 @@ module.exports = {
                           .then((stats) => {
                               res.setHeader("Content-Type", mime(map.staticfile));
                               res.setHeader("Last-Modified", new Date(stats.mtime));
-                              res.setHeader("Cache-Control", "max-age=600");
                               res.setHeader("eTag", "\"" + stats.mtime + "\"");
+                              if (map.staticfile.slice(-3) == ".js") {
+                                res.setHeader("Cache-Control", "no-cache");
+                              } else {
+                                res.setHeader("Cache-Control", "max-age=600");
+                              }
                               res.writeHead(200);
                               res.end(contents);
                           });
@@ -162,8 +166,12 @@ module.exports = {
                           .then((stats) => {
                               res.setHeader("Content-Type", mime(file));
                               res.setHeader("Last-Modified", new Date(stats.mtime));
-                              res.setHeader("Cache-Control", "max-age=600");
                               res.setHeader("eTag", "\"" + stats.mtime + "\"");
+                              if (file.slice(-3) == ".js") {
+                                res.setHeader("Cache-Control", "no-cache");
+                              } else {
+                                res.setHeader("Cache-Control", "max-age=600");
+                              }
                               res.writeHead(200);
                               res.end(contents);
                           });
