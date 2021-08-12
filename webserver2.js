@@ -148,8 +148,8 @@ module.exports = {
                           });
                       })
                       .catch(err => {
-                          res.writeHead(500);
-                          res.end(""+err);
+                          res.writeHead(404);
+                          res.end(""+map.staticfile + " not found");
                       });
                   }
                   return;
@@ -178,7 +178,7 @@ module.exports = {
                       })
                       .catch(err => {
                           res.writeHead(404);
-                          res.end("");
+                          res.end("" + map.staticfile + "/" + file + " not found");
                       });
                       return;
                   }
