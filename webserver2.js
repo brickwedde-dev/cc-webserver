@@ -2,6 +2,14 @@ const http = require("http");
 const http2 = require("http2");
 const fs = require('fs').promises;
 const fs1 = require('fs');
+const pkg = require('./package.json');
+const ACME = require('acme');
+const Keypairs = require('@root/keypairs');
+const punycode = require('punycode');
+const CSR = require('@root/csr');
+const PEM = require('@root/pem');
+const acmewebroot = require('acme-http-01-webroot')
+const cert2json = require('cert2json')
 
 module.exports = {
     doLetsEncrypt : function (domains) {
@@ -97,6 +105,7 @@ module.exports = {
         initAcme();
       }, 24 * 3600 * 1000);
     },
+    
     createRedirectServer : function (host, port) {
         var redirectorserver = http.createServer({}, (req, res) => {
             res.setHeader("Location", 'https://' + req.headers.host + req.url);
