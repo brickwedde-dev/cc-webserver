@@ -1,11 +1,20 @@
 const http = require("http");
 const http2 = require("http2");
 const fs = require('fs').promises;
-const fs1 = require('fs');
+const fssync = require('fs');
+const cert2json = require('cert2json')
+const process = require('process')
+const pkg = require.main.require('./package.json');
+const ACME = require('acme');
+const Keypairs = require('@root/keypairs');
+const punycode = require('punycode');
+const CSR = require('@root/csr');
+const PEM = require('@root/pem');
+const acmewebroot = require('acme-http-01-webroot')
 
 module.exports = {
     doLetsEncrypt : function (domains) {
-      async function initAcme()
+      this.runLetsencrypt = async function runLetsencrypt()
       {
         if (fssync.existsSync("./cert.pem")) {
           const cert = cert2json.parseFromFile('./cert.pem')
@@ -94,7 +103,7 @@ module.exports = {
       }
       
       setInterval(() => {
-        initAcme();
+        this.runLetsencrypt();
       }, 24 * 3600 * 1000);
     },
     createRedirectServer : function (host, port) {
@@ -489,8 +498,8 @@ module.exports = {
         };
 
         if (key && cert) {
-          options.key = fs1.readFileSync(key),
-          options.cert = fs1.readFileSync(cert)
+          options.key = fssync.readFileSync(key),
+          options.cert = fssync.readFileSync(cert)
         }
 
         var server = null;
