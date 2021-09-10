@@ -108,8 +108,8 @@ module.exports = {
     }, 24 * 3600 * 1000);
   },
 
-  addInstanciateClass: function (name, theConstructor) {
-    classConstructors[name] = theConstructor;
+  addInstanciateClass: function (theConstructor) {
+    classConstructors[theConstructor.name] = theConstructor;
   },
 
   createRedirectServer: function (host, port) {
