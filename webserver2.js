@@ -14,6 +14,30 @@ const acmewebroot = require('acme-http-01-webroot');
 
 const classConstructors = {};
 
+class InstantiateClass {
+  constructor() {
+  }
+
+  dispatchEvent (event) {
+    if (!(event instanceof CustomEvent)) {
+      console.error("Event must be of type CustomEvent");
+      return;
+    }
+
+    const id = Date.now();
+    const data = JSON.stringify({ event: event.name, detail: event.detail, customevent: this.__instanceno });
+    const message = `id:${id}\ndata: ${data}\n\n`;
+    this.__sendSSE(message);
+  }
+}
+
+class CustomEvent {
+  constructor(name, detail) {
+    this.name = name;
+    this.detail = detail.detail;
+  }
+}
+
 module.exports = {
   doLetsEncrypt: function (domains) {
     this.runLetsencrypt = async function runLetsencrypt () {
@@ -495,9 +519,32 @@ module.exports = {
                   parameters.unshift(null);
                   promise.then(() => {
                     var id = new Date().getTime();
+                    var obj = new (Function.prototype.bind.apply(classConstructors[fnname], parameters));
+
+                    Object.defineProperty(obj, "__sendSSE", {
+                        enumerable: false,
+                        writable: false,
+                        value: (message) => {
+                          if (map.apiobject.__internal_sseconnections) {
+                            for (var conn of map.apiobject.__internal_sseconnections) {
+                              try {
+                                conn.res.write(message);
+                              } catch (e) {
+                              }
+                            }
+                          }
+                        },
+                    });
+
+                    Object.defineProperty(obj, "__instanceno", {
+                        enumerable: false,
+                        writable: false,
+                        value: id,
+                    });
+
                     instances[id] = {
                       id,
-                      obj: new (Function.prototype.bind.apply(classConstructors[fnname], parameters)),
+                      obj,
                       lastused: id,
                     };
                     res.writeHead(200, {
@@ -791,6 +838,32 @@ module.exports = {
     }
 
     return { server, options, mimemapping };
-  }
+  },
+
+  InstantiateClass : InstantiateClass,
+  CustomEvent : CustomEvent,
 };
+
+Promise.allProgress = function promiseAllProgress(target, eventname, promises) {
+    var ready = 0;
+    var last = undefined;
+    for(var i = 0; i < promises.length; i++) {
+        let p = promises[i];
+        promises[i] = new Promise((resolve, reject) => {
+            setImmediate(() => {
+                p.then(() => {
+                    resolve(i);
+                    var percent = (ready++ / promises.length * 100).toFixed(1);
+                    if (last != percent) {
+                      last = percent;
+                      target.dispatchEvent(new CustomEvent(eventname, {detail : percent}));
+                    }
+                }).catch((e) => {
+                    reject(e);
+                })
+            });
+        });
+    }
+    return Promise.all(promises);
+}
 
