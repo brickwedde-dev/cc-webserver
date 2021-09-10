@@ -108,7 +108,7 @@ module.exports = {
     }, 24 * 3600 * 1000);
   },
 
-  addInstanciateClass: function (theConstructor) {
+  addInstantiateClass: function (theConstructor) {
     classConstructors[theConstructor.name] = theConstructor;
   },
 
