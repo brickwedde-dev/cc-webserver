@@ -443,7 +443,7 @@ module.exports = {
                             res.end(oInfo.htmltemplate.replace(/@@/, x));
                           } else {
                             res.writeHead(200, {
-                              'Content-Type': "application/json",
+                              'Content-Type': "application/json; charset=utf-8",
                               'Cache-Control': 'no-cache',
                             });
                             res.end(JSON.stringify(x));
@@ -474,7 +474,7 @@ module.exports = {
                         res.end(oInfo.htmltemplate.replace(/@@/, result));
                       } else {
                         res.writeHead(200, {
-                          'Content-Type': "application/json",
+                          'Content-Type': "application/json; charset=utf-8",
                           'Cache-Control': 'no-cache',
                         });
                         res.end(JSON.stringify(result));
@@ -548,7 +548,7 @@ module.exports = {
                       lastused: id,
                     };
                     res.writeHead(200, {
-                      'Content-Type': "application/json",
+                      'Content-Type': "application/json; charset=utf-8",
                       'Cache-Control': 'no-cache',
                       'X-InstanceNo': id,
                     });
@@ -584,7 +584,7 @@ module.exports = {
                   promise.then(() => {
                     if (!instances[id]) {
                       res.writeHead(403, {
-                        'Content-Type': "application/json",
+                        'Content-Type': "application/json; charset=utf-8",
                         'Cache-Control': 'no-cache',
                       });
                       res.end("instance not found!");
@@ -592,14 +592,14 @@ module.exports = {
                     }
                     if (instances[id].obj[fnname] instanceof Function) {
                       res.writeHead(200, {
-                        'Content-Type': "application/json",
+                        'Content-Type': "application/json; charset=utf-8",
                         'Cache-Control': 'no-cache',
                         'X-PropertyType': 'function',
                       });
                       res.end("");
                     } else {
                       res.writeHead(200, {
-                        'Content-Type': "application/json",
+                        'Content-Type': "application/json; charset=utf-8",
                         'Cache-Control': 'no-cache',
                         'X-PropertyType': 'json',
                       });
@@ -635,14 +635,14 @@ module.exports = {
                   promise.then(() => {
                     if (!instances[id]) {
                       res.writeHead(403, {
-                        'Content-Type': "application/json",
+                        'Content-Type': "application/json; charset=utf-8",
                         'Cache-Control': 'no-cache',
                       });
                       res.end("instance not found!");
                       return;
                     }
                     res.writeHead(200, {
-                      'Content-Type': "application/json",
+                      'Content-Type': "application/json; charset=utf-8",
                       'Cache-Control': 'no-cache',
                       'X-PropertyType': 'function',
                     });
@@ -678,7 +678,7 @@ module.exports = {
                   promise.then(() => {
                     if (!instances[id]) {
                       res.writeHead(403, {
-                        'Content-Type': "application/json",
+                        'Content-Type': "application/json; charset=utf-8",
                         'Cache-Control': 'no-cache',
                       });
                       res.end("instance not found!");
@@ -686,7 +686,7 @@ module.exports = {
                     }
                     instances[id].obj[fnname] = parameters[0];
                     res.writeHead(200, {
-                      'Content-Type': "application/json",
+                      'Content-Type': "application/json; charset=utf-8",
                       'Cache-Control': 'no-cache',
                       'X-PropertyType': 'json',
                     });
@@ -733,7 +733,7 @@ module.exports = {
                             res.end(oInfo.htmltemplate.replace(/@@/, x));
                           } else {
                             res.writeHead(200, {
-                              'Content-Type': "application/json",
+                              'Content-Type': "application/json; charset=utf-8",
                               'Cache-Control': 'no-cache',
                             });
                             res.end(JSON.stringify(x));
@@ -764,7 +764,7 @@ module.exports = {
                         res.end(oInfo.htmltemplate.replace(/@@/, result));
                       } else {
                         res.writeHead(200, {
-                          'Content-Type': "application/json",
+                          'Content-Type': "application/json; charset=utf-8",
                           'Cache-Control': 'no-cache',
                         });
                         res.end(JSON.stringify(result));
