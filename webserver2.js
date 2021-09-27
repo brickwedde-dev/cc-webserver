@@ -38,6 +38,9 @@ class CustomEvent {
   }
 }
 
+class WebserverResponseSent {
+}
+
 module.exports = {
   doLetsEncrypt: function (domains) {
     this.runLetsencrypt = async function runLetsencrypt () {
@@ -422,7 +425,7 @@ module.exports = {
                     throw "Function " + fnname + " not found";
                   }
 
-                  var oInfo = {};
+                  var oInfo = { request : req, response: res };
                   var promise = Promise.resolve();
                   if (map.apiobject.checksession) {
                     let user = {};
@@ -435,7 +438,9 @@ module.exports = {
                     if (result instanceof Promise) {
                       result
                         .then((x) => {
-                          if (oInfo.htmltemplate) {
+                          if (x instanceof WebserverResponseSent) {
+
+                          } else if (oInfo.htmltemplate) {
                             res.writeHead(200, {
                               'Content-Type': "text/html",
                               'Cache-Control': 'no-cache',
@@ -465,6 +470,7 @@ module.exports = {
                             res.end("" + e);
                           }
                         });
+                    } else if (result instanceof WebserverResponseSent) {
                     } else {
                       if (oInfo.htmltemplate) {
                         res.writeHead(200, {
@@ -842,6 +848,7 @@ module.exports = {
 
   InstantiateClass : InstantiateClass,
   CustomEvent : CustomEvent,
+  WebserverResponseSent : WebserverResponseSent,
 };
 
 Promise.allProgress = function promiseAllProgress(target, eventname, promises) {
