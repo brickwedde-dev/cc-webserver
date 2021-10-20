@@ -314,8 +314,9 @@ module.exports = {
                   });
               })
               .catch(err => {
-                res.writeHead(404);
+                console.error(err);
                 res.setHeader("X-Exception", `${err}`);
+                res.writeHead(404);
                 res.end("" + map.staticfile + "" + file + " not found");
               });
             return;
