@@ -315,7 +315,8 @@ module.exports = {
               })
               .catch(err => {
                 res.writeHead(404);
-                res.end("" + map.staticfile + "/" + file + " not found");
+                res.setHeader("X-Exception", `${err}`);
+                res.end("" + map.staticfile + "" + file + " not found");
               });
             return;
           }
@@ -416,6 +417,11 @@ module.exports = {
                       };
                     }
                   }
+                  res.writeHead(200, {
+                    'Content-Type': "application/json; charset=utf-8",
+                    'Cache-Control': 'no-cache',
+                  });
+                  res.end(JSON.stringify({}));
                   return;
                 }
 
