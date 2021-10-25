@@ -408,11 +408,14 @@ module.exports = {
                                       map.entrycounter[fnname] = (map.entrycounter[fnname] || 0) + 1;
                                       oInfo.entrycounter = map.entrycounter[fnname];
 
-                                      var result = map.apiobject[fnname].apply(map.apiobject, parameters);
+                                      var result = null;
+                                      try {
+                                        result = map.apiobject[fnname].apply(map.apiobject, parameters);
+                                      } catch(e) {
+                                      }
                                       if (result instanceof Promise) {
                                           result
                                           .then((x) => {
-                                              map.entrycounter[fnname] = map.entrycounter[fnname] - 1;
                                               if (oInfo.htmltemplate) {
                                                 res.writeHead(200, {
                                                     'Content-Type': "text/html",
@@ -426,6 +429,7 @@ module.exports = {
                                                 });
                                                 res.end(JSON.stringify(x));
                                               }
+                                              map.entrycounter[fnname] = map.entrycounter[fnname] - 1;
                                           })
                                           .catch((e) => {
                                               map.entrycounter[fnname] = map.entrycounter[fnname] - 1;
