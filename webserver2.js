@@ -444,7 +444,7 @@ module.exports = {
                                                 res.writeHead(500, {
                                                     'Content-Type': "text/plain",
                                                     'Cache-Control': 'no-cache',
-                                                    "X-Exception": "" + e,
+                                                    "X-Exception": "" + ("" + e).replace(/[^\x20-\x7F]/g, ""),
                                                 });
                                                 res.end("" + e);
                                               }
