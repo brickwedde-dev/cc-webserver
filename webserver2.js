@@ -383,17 +383,18 @@ module.exports = {
                                           };
                                       }
                                   }
+                                  res.end(JSON.stringify({ ok : true }));
                                   return;
                               }
           
                               if (what.substring(0, 6) == "method") {
-                                  var fnname = what.substring(7);
+                                  let fnname = what.substring(7);
                                   if (!map.apiobject[fnname]) {
                                       throw "Function " + fnname + " not found";
                                   }
       
-                                  var oInfo = {};
-                                  var promise = Promise.resolve();
+                                  let oInfo = {};
+                                  let promise = Promise.resolve();
                                   if (map.apiobject.checksession) {
                                       let user = {};
                                       promise = map.apiobject.checksession(oInfo, req, res, user, fnname);
@@ -401,10 +402,17 @@ module.exports = {
                                   parameters.unshift(oInfo);
       
                                   promise.then(() => {
+                                      if (!map.entrycounter) {
+                                          map.entrycounter = {};
+                                      }
+                                      map.entrycounter[fnname] = (map.entrycounter[fnname] || 0) + 1;
+                                      oInfo.entrycounter = map.entrycounter[fnname];
+
                                       var result = map.apiobject[fnname].apply(map.apiobject, parameters);
                                       if (result instanceof Promise) {
                                           result
                                           .then((x) => {
+                                              map.entrycounter[fnname] = map.entrycounter[fnname] - 1;
                                               if (oInfo.htmltemplate) {
                                                 res.writeHead(200, {
                                                     'Content-Type': "text/html",
@@ -420,6 +428,7 @@ module.exports = {
                                               }
                                           })
                                           .catch((e) => {
+                                              map.entrycounter[fnname] = map.entrycounter[fnname] - 1;
                                               if (oInfo.htmltemplate) {
                                                 res.writeHead(500, {
                                                     'Content-Type': "text/html",
@@ -436,6 +445,7 @@ module.exports = {
                                               }
                                           });
                                       } else {
+                                        map.entrycounter[fnname] = map.entrycounter[fnname] - 1;
                                         if (oInfo.htmltemplate) {
                                             res.writeHead(200, {
                                                 'Content-Type': "text/html",
