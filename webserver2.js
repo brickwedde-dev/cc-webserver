@@ -412,6 +412,7 @@ module.exports = {
                                       try {
                                         result = map.apiobject[fnname].apply(map.apiobject, parameters);
                                       } catch(e) {
+                                        console.error (e);
                                       }
                                       if (result instanceof Promise) {
                                           result
