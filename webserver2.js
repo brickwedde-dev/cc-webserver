@@ -262,6 +262,32 @@ module.exports = {
                       console.log(requrl + " has staticfile");
                       var file = requrl.substring(map.urlprefix.length);
                       file = file.replace(/\\.\\./g, "__");
+
+                      if (file.endsWith("@all.js")) {
+                        fs.readdir(process.cwd() + "/" + map.staticfile + "/" + file.slice(0, -7))
+                        .then(async (files) => {
+                          res.writeHead(200);
+                          files.sort((a,b) => {
+                            return a.localeCompare(b);
+                          });
+                          for(var singlefile of files) {
+                            if (singlefile.endsWith(".js")) {
+                              try {
+                                var content = await fs.readFile(process.cwd() + "/" + map.staticfile + "/" + file.slice(0, -7) + "/" + singlefile);
+                                res.write(content);
+                              } catch (e) {
+                              }
+                            }
+                          }
+                          res.end("");
+                        })
+                        .catch((e) => {
+                          res.writeHead(500);
+                          res.end(file + ":" + "" + e);
+                        });
+                        return;
+                      }
+
                       fs.readFile(process.cwd() + "/" + map.staticfile + "/" + file)
                       .then(contents => {
                           fs.stat(process.cwd() + "/" + map.staticfile + "/" + file)
