@@ -291,11 +291,12 @@ module.exports = {
 
                       fs.stat(process.cwd() + "/" + map.staticfile + "/" + file)
                       .then(async (stats) => {
-                          res.setHeader("Content-Type", mime(file));
+                          var contType = mime(file);
+                          res.setHeader("Content-Type", contType);
                           res.setHeader("Content-Length", stats.size);
                           res.setHeader("Last-Modified", new Date(stats.mtime));
                           res.setHeader("eTag", "\"" + stats.mtime + "\"");
-                          if (file.slice(-3) == ".js") {
+                          if (contType == "text/html" || contType == "text/javascript" || file.slice(-3) == ".js") {
                             res.setHeader("Cache-Control", "no-cache");
                           } else {
                             res.setHeader("Cache-Control", "max-age=600");
