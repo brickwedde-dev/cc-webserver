@@ -238,10 +238,11 @@ module.exports = {
                       .then(contents => {
                           fs.stat(process.cwd() + "/" + map.staticfile)
                           .then((stats) => {
-                              res.setHeader("Content-Type", mime(map.staticfile));
+                              var contType = mime(map.staticfile);
+                              res.setHeader("Content-Type", contType);
                               res.setHeader("Last-Modified", new Date(stats.mtime));
                               res.setHeader("eTag", "\"" + stats.mtime + "\"");
-                              if (map.staticfile.slice(-3) == ".js") {
+                              if (contType == "text/html" || contType == "text/javascript" || map.staticfile.slice(-3) == ".js" || map.staticfile.slice(-5) == ".html") {
                                 res.setHeader("Cache-Control", "no-cache");
                               } else {
                                 res.setHeader("Cache-Control", "max-age=600");
