@@ -10,6 +10,7 @@ const CSR = require('@root/csr');
 const PEM = require('@root/pem');
 const acmewebroot = require('acme-http-01-webroot')
 const cert2json = require('cert2json')
+const Buffer = require('buffer').Buffer;
 
 module.exports = {
     doLetsEncrypt : function (domains) {
@@ -262,25 +263,76 @@ module.exports = {
                       console.log(requrl + " has staticfile");
                       var file = requrl.substring(map.urlprefix.length);
                       file = file.replace(/\\.\\./g, "__");
-                      fs.readFile(process.cwd() + "/" + map.staticfile + "/" + file)
-                      .then(contents => {
-                          fs.stat(process.cwd() + "/" + map.staticfile + "/" + file)
-                          .then((stats) => {
-                              res.setHeader("Content-Type", mime(file));
-                              res.setHeader("Last-Modified", new Date(stats.mtime));
-                              res.setHeader("eTag", "\"" + stats.mtime + "\"");
-                              if (file.slice(-3) == ".js") {
-                                res.setHeader("Cache-Control", "no-cache");
-                              } else {
-                                res.setHeader("Cache-Control", "max-age=600");
+                      fs.stat(process.cwd() + "/" + map.staticfile + "/" + file)
+                      .then(async (stats) => {
+                          res.setHeader("Content-Type", mime(file));
+                          res.setHeader("Content-Length", stats.size);
+                          res.setHeader("Last-Modified", new Date(stats.mtime));
+                          res.setHeader("eTag", "\"" + stats.mtime + "\"");
+                          if (file.slice(-3) == ".js") {
+                            res.setHeader("Cache-Control", "no-cache");
+                          } else {
+                            res.setHeader("Cache-Control", "max-age=600");
+                          }
+                          res.writeHead(200);
+
+                          if (stats.size > 102400) {
+                            let oInfo = {count : 0};
+                            let filehandle = await fs.open(process.cwd() + "/" + map.staticfile + "/" + file);
+                            try {
+                              let buf = Buffer.alloc(102400);
+                              while(oInfo.count < stats.size) {
+                                var p = new Promise((resolve, reject) => {
+                                  var rest = stats.size - oInfo.count;
+                                  if (rest <= 0) {
+                                    resolve(0);
+                                  }
+                                  if (rest > buf.length) {
+                                    rest = buf.length;
+                                  }
+                                  filehandle.read(buf, 0, rest)
+                                  .then(async (o) => {
+                                    let outbuf = o.buffer;
+                                    if (o.bytesRead != o.buffer.length) {
+                                      outbuf = o.buffer.slice(0, o.bytesRead);
+                                    }
+                                    var pw = new Promise((resolve, reject) => {
+                                      res.write(outbuf, null, () => {resolve()});
+                                    });
+                                    await pw;
+                                    oInfo.count += o.bytesRead;
+                                    resolve(1);
+                                  })
+                                  .catch((e) => {
+                                    reject(e);
+                                  });
+                                });
+                                var result = await p;
+                                if (!result) {
+                                  break;
+                                }
                               }
-                              res.writeHead(200);
-                              res.end(contents);
-                          });
+                              res.end();
+                            } catch (e) {
+                              res.stream.destroy();
+                            }
+                            filehandle.close();
+                          } else {
+                            fs.readFile(process.cwd() + "/" + map.staticfile + "/" + file)
+                            .then(contents => {
+                                res.end(contents);
+                            });
+                          }
                       })
                       .catch(err => {
-                          res.writeHead(404);
-                          res.end("" + map.staticfile + "/" + file + " not found");
+                          console.error(err);
+                          try {
+                            res.writeHead(404);
+                            res.end("" + map.staticfile + "/" + file + " not found");
+                          }
+                          catch (e) {
+                            res.stream.destroy();
+                          }
                       });
                       return;
                   }
