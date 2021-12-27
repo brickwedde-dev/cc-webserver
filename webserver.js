@@ -142,7 +142,7 @@ module.exports = {
                     if (map.staticfile) {
                         console.log(requrl + " has staticfile");
                         var file = requrl.substring(map.urlprefix.length);
-                        file = file.replace(/\\.\\./g, "__");
+                        file = file.replace(/\.\./g, "__");
                         fs.readFile(process.cwd() + "/" + map.staticfile + "/" + file)
                         .then(contents => {
                             fs.stat(process.cwd() + "/" + map.staticfile + "/" + file)

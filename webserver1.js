@@ -253,7 +253,7 @@ module.exports = {
           if (map.staticfile) {
             console.log(requrl + " has staticfile");
             var file = requrl.substring(map.urlprefix.length);
-            file = file.replace(/\\.\\./g, "__");
+            file = file.replace(/\.\./g, "__");
 
             if (file.endsWith("@all.js")) {
               fs.readdir(process.cwd() + "/" + map.staticfile + "/" + file.slice(0, -7))
