@@ -389,6 +389,11 @@ module.exports = {
                               let obj = {req, res};
                               map.apiobject.__internal_sseconnections.push(obj);
           
+                              const id = Date.now();
+                              const data = JSON.stringify({ fnname: "testsse", params : [id] });
+                              const message = `id:${id}\ndata: ${data}\n\n`;
+                              res.write(message);
+
                               req.on('close', () => {
                                   var index = map.apiobject.__internal_sseconnections.indexOf(obj);
                                   if (index >= 0) {

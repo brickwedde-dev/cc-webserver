@@ -1,12 +1,12 @@
 const http = require("http");
 const https = require("https");
 const fs = require('fs').promises;
-const fs1 = require('fs');
+const fssync = require('fs');
 
 module.exports = {
   doLetsEncrypt: function (domains) {
     async function initAcme () {
-      if (fssync.existsSync("./cert.pem")) {
+      if (await fs.existsSync("./cert.pem")) {
         const cert = cert2json.parseFromFile('./cert.pem');
         var exp = new Date(cert.tbs.validity.notAfter).getTime();
         var now15 = new Date().getTime() + 7 * 24 * 60 * 60 * 1000;
@@ -33,7 +33,7 @@ module.exports = {
       directoryUrl = 'https://acme-v02.api.letsencrypt.org/directory';
       await acme.init(directoryUrl);
 
-      if (!await fssync.existsSync("./account.pem")) {
+      if (!await fs.existsSync("./account.pem")) {
         console.log("Creating accountkey");
         var accountKeypair = await Keypairs.generate({ kty: 'EC', format: 'jwk' });
         var accountKey = accountKeypair.private;
@@ -53,7 +53,7 @@ module.exports = {
       });
       console.info('created account with id', account.key.kid);
 
-      if (!await fssync.existsSync('./key.pem')) {
+      if (!await fs.existsSync('./key.pem')) {
         console.log("creating server key");
         var serverKeypair = await Keypairs.generate({ kty: 'RSA', format: 'jwk' });
         var serverKey = serverKeypair.private;
@@ -384,6 +384,11 @@ module.exports = {
                 let obj = { req, res };
                 map.apiobject.__internal_sseconnections.push(obj);
 
+                const id = Date.now();
+                const data = JSON.stringify({ fnname: "testsse", params : [id] });
+                const message = `id:${id}\ndata: ${data}\n\n`;
+                res.write(message);
+
                 req.on('close', () => {
                   var index = map.apiobject.__internal_sseconnections.indexOf(obj);
                   if (index >= 0) {
@@ -590,8 +595,8 @@ module.exports = {
     var server;
 
     if (key && cert) {
-      options.key = fs1.readFileSync(key);
-      options.cert = fs1.readFileSync(cert);
+      options.key = fssync.readFileSync(key);
+      options.cert = fssync.readFileSync(cert);
       server = https.createServer(options, requestListener);
     } else {
       server = http.createServer(options, requestListener);
