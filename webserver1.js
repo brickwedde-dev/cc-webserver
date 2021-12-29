@@ -2,11 +2,37 @@ const http = require("http");
 const https = require("https");
 const fs = require('fs').promises;
 const fssync = require('fs');
+class InstantiateClass {
+  constructor() {
+  }
+
+  dispatchEvent (event) {
+    if (!(event instanceof CustomEvent)) {
+      console.error("Event must be of type CustomEvent");
+      return;
+    }
+
+    const id = Date.now();
+    const data = JSON.stringify({ event: event.name, detail: event.detail, customevent: this.__instanceno });
+    const message = `id:${id}\ndata: ${data}\n\n`;
+    this.__sendSSE(message);
+  }
+}
+
+class CustomEvent {
+  constructor(name, detail) {
+    this.name = name;
+    this.detail = detail.detail;
+  }
+}
+
+class WebserverResponseSent {
+}
 
 module.exports = {
   doLetsEncrypt: function (domains) {
-    async function initAcme () {
-      if (await fs.existsSync("./cert.pem")) {
+    this.runLetsencrypt = async function runLetsencrypt () {
+      if (fssync.existsSync("./cert.pem")) {
         const cert = cert2json.parseFromFile('./cert.pem');
         var exp = new Date(cert.tbs.validity.notAfter).getTime();
         var now15 = new Date().getTime() + 7 * 24 * 60 * 60 * 1000;
@@ -33,7 +59,7 @@ module.exports = {
       directoryUrl = 'https://acme-v02.api.letsencrypt.org/directory';
       await acme.init(directoryUrl);
 
-      if (!await fs.existsSync("./account.pem")) {
+      if (!await fssync.existsSync("./account.pem")) {
         console.log("Creating accountkey");
         var accountKeypair = await Keypairs.generate({ kty: 'EC', format: 'jwk' });
         var accountKey = accountKeypair.private;
@@ -53,7 +79,7 @@ module.exports = {
       });
       console.info('created account with id', account.key.kid);
 
-      if (!await fs.existsSync('./key.pem')) {
+      if (!await fssync.existsSync('./key.pem')) {
         console.log("creating server key");
         var serverKeypair = await Keypairs.generate({ kty: 'RSA', format: 'jwk' });
         var serverKey = serverKeypair.private;
@@ -90,11 +116,15 @@ module.exports = {
       await fs.writeFile('cert.pem', fullchain, 'ascii');
       console.info('wrote ./cert.pem');
       process.exit();
-    }
+    };
 
     setInterval(() => {
-      initAcme();
+      this.runLetsencrypt();
     }, 24 * 3600 * 1000);
+  },
+
+  addInstantiateClass: function (theConstructor) {
+    classConstructors[theConstructor.name] = theConstructor;
   },
 
   createRedirectServer: function (host, port) {
@@ -124,6 +154,8 @@ module.exports = {
       "mp4": "video/mp4",
       "mpeg": "video/mpeg",
     };
+
+    var instances = {};
 
     const mime = (filename) => {
       filename = filename.toLowerCase();
@@ -344,6 +376,7 @@ module.exports = {
               })
               .catch(err => {
                 console.error(err);
+                res.setHeader("X-Exception", `${err}`);
                 try {
                   res.writeHead(404);
                   res.end("" + map.staticfile + "/" + file + " not found");
@@ -464,6 +497,10 @@ module.exports = {
                       };
                     }
                   }
+                  res.writeHead(200, {
+                    'Content-Type': "application/json; charset=utf-8",
+                    'Cache-Control': 'no-cache',
+                  });
                   res.end(JSON.stringify({ ok: true }));
                   return;
                 }
@@ -474,7 +511,7 @@ module.exports = {
                     throw "Function " + fnname + " not found";
                   }
 
-                  let oInfo = {};
+                  let oInfo = { request: req, response: res };
                   let promise = Promise.resolve();
                   if (map.apiobject.checksession) {
                     let user = {};
@@ -498,7 +535,9 @@ module.exports = {
                     if (result instanceof Promise) {
                       result
                         .then((x) => {
-                          if (oInfo.htmltemplate) {
+                          if (x instanceof WebserverResponseSent) {
+
+                          } else if (oInfo.htmltemplate) {
                             res.writeHead(200, {
                               'Content-Type': "text/html",
                               'Cache-Control': 'no-cache',
@@ -506,7 +545,7 @@ module.exports = {
                             res.end(oInfo.htmltemplate.replace(/@@/, x));
                           } else {
                             res.writeHead(200, {
-                              'Content-Type': "application/json",
+                              'Content-Type': "application/json; charset=utf-8",
                               'Cache-Control': 'no-cache',
                             });
                             res.end(JSON.stringify(x));
@@ -530,6 +569,8 @@ module.exports = {
                             res.end("" + e);
                           }
                         });
+                    } else if (result instanceof WebserverResponseSent) {
+                      map.entrycounter[fnname] = map.entrycounter[fnname] - 1;
                     } else {
                       map.entrycounter[fnname] = map.entrycounter[fnname] - 1;
                       if (oInfo.htmltemplate) {
@@ -540,7 +581,298 @@ module.exports = {
                         res.end(oInfo.htmltemplate.replace(/@@/, result));
                       } else {
                         res.writeHead(200, {
-                          'Content-Type': "application/json",
+                          'Content-Type': "application/json; charset=utf-8",
+                          'Cache-Control': 'no-cache',
+                        });
+                        res.end(JSON.stringify(result));
+                      }
+                    }
+                  })
+                    .catch((w) => {
+                      if (oInfo.htmltemplate) {
+                        res.writeHead(403, {
+                          'Content-Type': "text/html",
+                          'Cache-Control': 'no-cache',
+                        });
+                        res.end(oInfo.htmltemplate.replace(/@@/, "User unauthorized by apiobject: " + w));
+                      } else {
+                        res.writeHead(403, {
+                          'Content-Type': "text/plain",
+                          'Cache-Control': 'no-cache',
+                        });
+                        res.end("User unauthorized by apiobject: " + w);
+                      }
+                    });
+                  return;
+                }
+
+                if (what.substring(0, 18) == "instance_construct") {
+                  var fnname = what.substring(19);
+                  if (!classConstructors[fnname]) {
+                    console.error("construct not allowed:" + fnname);
+                    res.writeHead(403, {
+                      'Content-Type': "text/plain",
+                      'Cache-Control': 'no-cache',
+                    });
+                    res.end("construct not allowed: " + fnname);
+                    return;
+                  }
+                  var oInfo = {};
+                  var promise = Promise.resolve();
+                  if (map.apiobject.checksession) {
+                    let user = {};
+                    promise = map.apiobject.checksession(oInfo, req, res, user, fnname);
+                  }
+                  parameters.unshift(oInfo);
+                  parameters.unshift(null);
+                  promise.then(() => {
+                    var id = new Date().getTime();
+                    var obj = new (Function.prototype.bind.apply(classConstructors[fnname], parameters));
+
+                    Object.defineProperty(obj, "__sendSSE", {
+                      enumerable: false,
+                      writable: false,
+                      value: (message) => {
+                        if (map.apiobject.__internal_sseconnections) {
+                          for (var conn of map.apiobject.__internal_sseconnections) {
+                            try {
+                              conn.res.write(message);
+                            } catch (e) {
+                            }
+                          }
+                        }
+                      },
+                    });
+
+                    Object.defineProperty(obj, "__instanceno", {
+                      enumerable: false,
+                      writable: false,
+                      value: id,
+                    });
+
+                    instances[id] = {
+                      id,
+                      obj,
+                      lastused: id,
+                    };
+                    res.writeHead(200, {
+                      'Content-Type': "application/json; charset=utf-8",
+                      'Cache-Control': 'no-cache',
+                      'X-InstanceNo': id,
+                    });
+                    res.end("");
+                  })
+                    .catch((w) => {
+                      if (oInfo.htmltemplate) {
+                        res.writeHead(403, {
+                          'Content-Type': "text/html",
+                          'Cache-Control': 'no-cache',
+                        });
+                        res.end(oInfo.htmltemplate.replace(/@@/, "User unauthorized by apiobject: " + w));
+                      } else {
+                        res.writeHead(403, {
+                          'Content-Type': "text/plain",
+                          'Cache-Control': 'no-cache',
+                        });
+                        res.end("User unauthorized by apiobject: " + w);
+                      }
+                    });
+                  return;
+                }
+                if (what.substring(0, 14) == "instance_get") {
+                  var fnname = what.substring(15);
+                  var id = req.headers["x-instanceno"];
+                  var oInfo = {};
+                  var promise = Promise.resolve();
+                  if (map.apiobject.checksession) {
+                    let user = {};
+                    promise = map.apiobject.checksession(oInfo, req, res, user, fnname);
+                  }
+
+                  promise.then(() => {
+                    if (!instances[id]) {
+                      res.writeHead(403, {
+                        'Content-Type': "application/json; charset=utf-8",
+                        'Cache-Control': 'no-cache',
+                      });
+                      res.end("instance not found!");
+                      return;
+                    }
+                    if (instances[id].obj[fnname] instanceof Function) {
+                      res.writeHead(200, {
+                        'Content-Type': "application/json; charset=utf-8",
+                        'Cache-Control': 'no-cache',
+                        'X-PropertyType': 'function',
+                      });
+                      res.end("");
+                    } else {
+                      res.writeHead(200, {
+                        'Content-Type': "application/json; charset=utf-8",
+                        'Cache-Control': 'no-cache',
+                        'X-PropertyType': 'json',
+                      });
+                      res.end(JSON.stringify(instances[id].obj[fnname]));
+                    }
+                  })
+                    .catch((w) => {
+                      if (oInfo.htmltemplate) {
+                        res.writeHead(403, {
+                          'Content-Type': "text/html",
+                          'Cache-Control': 'no-cache',
+                        });
+                        res.end(oInfo.htmltemplate.replace(/@@/, "User unauthorized by apiobject: " + w));
+                      } else {
+                        res.writeHead(403, {
+                          'Content-Type': "text/plain",
+                          'Cache-Control': 'no-cache',
+                        });
+                        res.end("User unauthorized by apiobject: " + w);
+                      }
+                    });
+                  return;
+                }
+                if (what.substring(0, 13) == "instance_json") {
+                  var id = req.headers["x-instanceno"];
+                  var oInfo = {};
+                  var promise = Promise.resolve();
+                  if (map.apiobject.checksession) {
+                    let user = {};
+                    promise = map.apiobject.checksession(oInfo, req, res, user, fnname);
+                  }
+
+                  promise.then(() => {
+                    if (!instances[id]) {
+                      res.writeHead(403, {
+                        'Content-Type': "application/json; charset=utf-8",
+                        'Cache-Control': 'no-cache',
+                      });
+                      res.end("instance not found!");
+                      return;
+                    }
+                    res.writeHead(200, {
+                      'Content-Type': "application/json; charset=utf-8",
+                      'Cache-Control': 'no-cache',
+                      'X-PropertyType': 'function',
+                    });
+                    res.end(JSON.stringify(instances[id].obj));
+                  })
+                    .catch((w) => {
+                      if (oInfo.htmltemplate) {
+                        res.writeHead(403, {
+                          'Content-Type': "text/html",
+                          'Cache-Control': 'no-cache',
+                        });
+                        res.end(oInfo.htmltemplate.replace(/@@/, "User unauthorized by apiobject: " + w));
+                      } else {
+                        res.writeHead(403, {
+                          'Content-Type': "text/plain",
+                          'Cache-Control': 'no-cache',
+                        });
+                        res.end("User unauthorized by apiobject: " + w);
+                      }
+                    });
+                  return;
+                }
+                if (what.substring(0, 12) == "instance_set") {
+                  var fnname = what.substring(13);
+                  var id = req.headers["x-instanceno"];
+                  var oInfo = {};
+                  var promise = Promise.resolve();
+                  if (map.apiobject.checksession) {
+                    let user = {};
+                    promise = map.apiobject.checksession(oInfo, req, res, user, fnname);
+                  }
+
+                  promise.then(() => {
+                    if (!instances[id]) {
+                      res.writeHead(403, {
+                        'Content-Type': "application/json; charset=utf-8",
+                        'Cache-Control': 'no-cache',
+                      });
+                      res.end("instance not found!");
+                      return;
+                    }
+                    instances[id].obj[fnname] = parameters[0];
+                    res.writeHead(200, {
+                      'Content-Type': "application/json; charset=utf-8",
+                      'Cache-Control': 'no-cache',
+                      'X-PropertyType': 'json',
+                    });
+                    res.end(JSON.stringify(instances[id].obj[fnname]));
+                  })
+                    .catch((w) => {
+                      if (oInfo.htmltemplate) {
+                        res.writeHead(403, {
+                          'Content-Type': "text/html",
+                          'Cache-Control': 'no-cache',
+                        });
+                        res.end(oInfo.htmltemplate.replace(/@@/, "User unauthorized by apiobject: " + w));
+                      } else {
+                        res.writeHead(403, {
+                          'Content-Type': "text/plain",
+                          'Cache-Control': 'no-cache',
+                        });
+                        res.end("User unauthorized by apiobject: " + w);
+                      }
+                    });
+                  return;
+                }
+                if (what.substring(0, 13) == "instance_call") {
+                  var id = req.headers["x-instanceno"];
+                  var fnname = what.substring(14);
+                  var oInfo = {};
+                  var promise = Promise.resolve();
+                  if (map.apiobject.checksession) {
+                    let user = {};
+                    promise = map.apiobject.checksession(oInfo, req, res, user, fnname);
+                  }
+                  parameters.unshift(oInfo);
+
+                  promise.then(() => {
+                    var result = instances[id].obj[fnname].apply(instances[id].obj, parameters);
+                    if (result instanceof Promise) {
+                      result
+                        .then((x) => {
+                          if (oInfo.htmltemplate) {
+                            res.writeHead(200, {
+                              'Content-Type': "text/html",
+                              'Cache-Control': 'no-cache',
+                            });
+                            res.end(oInfo.htmltemplate.replace(/@@/, x));
+                          } else {
+                            res.writeHead(200, {
+                              'Content-Type': "application/json; charset=utf-8",
+                              'Cache-Control': 'no-cache',
+                            });
+                            res.end(JSON.stringify(x));
+                          }
+                        })
+                        .catch((e) => {
+                          if (oInfo.htmltemplate) {
+                            res.writeHead(500, {
+                              'Content-Type': "text/html",
+                              'Cache-Control': 'no-cache',
+                            });
+                            res.end(oInfo.htmltemplate.replace(/@@/, e));
+                          } else {
+                            res.writeHead(500, {
+                              'Content-Type': "text/plain",
+                              'Cache-Control': 'no-cache',
+                              "X-Exception": "" + e,
+                            });
+                            res.end("" + e);
+                          }
+                        });
+                    } else {
+                      if (oInfo.htmltemplate) {
+                        res.writeHead(200, {
+                          'Content-Type': "text/html",
+                          'Cache-Control': 'no-cache',
+                        });
+                        res.end(oInfo.htmltemplate.replace(/@@/, result));
+                      } else {
+                        res.writeHead(200, {
+                          'Content-Type': "application/json; charset=utf-8",
                           'Cache-Control': 'no-cache',
                         });
                         res.end(JSON.stringify(result));
@@ -607,6 +939,33 @@ module.exports = {
     });
 
     return { server, options, mimemapping };
+  },
+
+  InstantiateClass: InstantiateClass,
+  CustomEvent: CustomEvent,
+  WebserverResponseSent: WebserverResponseSent,
+};
+
+Promise.allProgress = function promiseAllProgress (target, eventname, promises) {
+  var ready = 0;
+  var last = undefined;
+  for (var i = 0; i < promises.length; i++) {
+    let p = promises[i];
+    promises[i] = new Promise((resolve, reject) => {
+      setImmediate(() => {
+        p.then(() => {
+          resolve(i);
+          var percent = (ready++ / promises.length * 100).toFixed(1);
+          if (last != percent) {
+            last = percent;
+            target.dispatchEvent(new CustomEvent(eventname, { detail: percent }));
+          }
+        }).catch((e) => {
+          reject(e);
+        });
+      });
+    });
   }
+  return Promise.all(promises);
 };
 
