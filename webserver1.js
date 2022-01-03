@@ -511,7 +511,7 @@ module.exports = {
                     throw "Function " + fnname + " not found";
                   }
 
-                  let oInfo = { request: req, response: res };
+                  let oInfo = { };
                   let promise = Promise.resolve();
                   if (map.apiobject.checksession) {
                     let user = {};
