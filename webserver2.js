@@ -40,25 +40,6 @@ class CustomEvent {
 class WebserverResponseSent {
 }
 
-function hidePropertiesFromJson(aProperties) {
-  return () => {
-    var result = {};
-    for (var x in this) {
-        if (aProperties.indexOf(x) < 0) {
-            result[x] = this[x];
-        }
-    }
-    return result;
-  }
-};
-
-JSON.safeStringify = (obj, indent = 2) => {
-  let cache = [];
-  const retVal = JSON.stringify (obj, (key, value) => typeof (value === "object" && value !== null) ? (cache.includes(value) ? undefined : cache.push(value) && value) : value, indent);
-  cache = null;
-  return retVal;
-};
-
 module.exports = {
   doLetsEncrypt: function (domains) {
     this.runLetsencrypt = async function runLetsencrypt () {
@@ -263,9 +244,6 @@ module.exports = {
           if (map.handleobject) {
             console.log(requrl + " has handleobject");
             var oInfo = {};
-            oInfo.request = req;
-            oInfo.response = res;
-
             var promise = Promise.resolve();
             if (map.handleobject.checksession) {
               let user = {};
@@ -544,9 +522,6 @@ module.exports = {
                   }
 
                   let oInfo = { };
-                  oInfo.request = req;
-                  oInfo.response = res;
-
                   let promise = Promise.resolve();
                   if (map.apiobject.checksession) {
                     let user = {};
@@ -579,7 +554,7 @@ module.exports = {
                             });
                             res.end(oInfo.htmltemplate.replace(/@@/, x));
                           } else {
-                            x = JSON.safeStringify(x);
+                            x = JSON.stringify(x);
                             res.writeHead(200, {
                               'Content-Type': "application/json; charset=utf-8",
                               'Cache-Control': 'no-cache',
@@ -616,7 +591,7 @@ module.exports = {
                         });
                         res.end(oInfo.htmltemplate.replace(/@@/, result));
                       } else {
-                        result = JSON.safeStringify(result);
+                        result = JSON.stringify(result)
                         res.writeHead(200, {
                           'Content-Type': "application/json; charset=utf-8",
                           'Cache-Control': 'no-cache',
