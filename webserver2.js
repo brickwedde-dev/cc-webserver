@@ -256,6 +256,10 @@ module.exports = {
           if (map.handleobject) {
             console.log(requrl + " has handleobject");
             var oInfo = {};
+            oInfo.toJSON = hidePropertiesFromJson("response", "request");
+            oInfo.request = req;
+            oInfo.response = res;
+            
             var promise = Promise.resolve();
             if (map.handleobject.checksession) {
               let user = {};
@@ -417,12 +421,6 @@ module.exports = {
             if (what.substring(0, 14) == "sse/connection") {
               let fnname = "__SSE__";
               var oInfo = {};
-
-              oInfo.toJSON = hidePropertiesFromJson("response", "request");
-
-              oInfo.request = req;
-              oInfo.response = res;
-
               var promise = Promise.resolve();
               if (map.apiobject.checksession) {
                 let user = {};
@@ -540,6 +538,10 @@ module.exports = {
                   }
 
                   let oInfo = { };
+                  oInfo.toJSON = hidePropertiesFromJson("response", "request");
+                  oInfo.request = req;
+                  oInfo.response = res;
+
                   let promise = Promise.resolve();
                   if (map.apiobject.checksession) {
                     let user = {};
