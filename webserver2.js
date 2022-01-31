@@ -52,6 +52,13 @@ function hidePropertiesFromJson(aProperties) {
   }
 };
 
+JSON.safeStringify = (obj, indent = 2) => {
+  let cache = [];
+  const retVal = JSON.stringify (obj, (key, value) => typeof (value === "object" && value !== null) ? (cache.includes(value) ? undefined : cache.push(value) && value) : value, indent);
+  cache = null;
+  return retVal;
+};
+
 module.exports = {
   doLetsEncrypt: function (domains) {
     this.runLetsencrypt = async function runLetsencrypt () {
@@ -259,7 +266,7 @@ module.exports = {
             oInfo.toJSON = hidePropertiesFromJson("response", "request");
             oInfo.request = req;
             oInfo.response = res;
-            
+
             var promise = Promise.resolve();
             if (map.handleobject.checksession) {
               let user = {};
@@ -610,11 +617,12 @@ module.exports = {
                         });
                         res.end(oInfo.htmltemplate.replace(/@@/, result));
                       } else {
+                        result = JSON.safeStringify(result);
                         res.writeHead(200, {
                           'Content-Type': "application/json; charset=utf-8",
                           'Cache-Control': 'no-cache',
                         });
-                        res.end(JSON.stringify(result));
+                        res.end(result);
                       }
                     }
                   })
