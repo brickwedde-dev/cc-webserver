@@ -40,6 +40,18 @@ class CustomEvent {
 class WebserverResponseSent {
 }
 
+function hidePropertiesFromJson(aProperties) {
+  return () => {
+    var result = {};
+    for (var x in this) {
+        if (aProperties.indexOf(x) < 0) {
+            result[x] = this[x];
+        }
+    }
+    return result;
+  }
+};
+
 module.exports = {
   doLetsEncrypt: function (domains) {
     this.runLetsencrypt = async function runLetsencrypt () {
@@ -405,6 +417,12 @@ module.exports = {
             if (what.substring(0, 14) == "sse/connection") {
               let fnname = "__SSE__";
               var oInfo = {};
+
+              oInfo.toJSON = hidePropertiesFromJson("response", "request");
+
+              oInfo.request = req;
+              oInfo.response = res;
+
               var promise = Promise.resolve();
               if (map.apiobject.checksession) {
                 let user = {};
