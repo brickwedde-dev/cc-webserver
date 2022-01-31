@@ -263,7 +263,6 @@ module.exports = {
           if (map.handleobject) {
             console.log(requrl + " has handleobject");
             var oInfo = {};
-            oInfo.toJSON = hidePropertiesFromJson("response", "request");
             oInfo.request = req;
             oInfo.response = res;
 
@@ -545,7 +544,6 @@ module.exports = {
                   }
 
                   let oInfo = { };
-                  oInfo.toJSON = hidePropertiesFromJson("response", "request");
                   oInfo.request = req;
                   oInfo.response = res;
 
@@ -581,11 +579,12 @@ module.exports = {
                             });
                             res.end(oInfo.htmltemplate.replace(/@@/, x));
                           } else {
+                            x = JSON.safeStringify(x);
                             res.writeHead(200, {
                               'Content-Type': "application/json; charset=utf-8",
                               'Cache-Control': 'no-cache',
                             });
-                            res.end(JSON.stringify(x));
+                            res.end(x);
                           }
                           map.entrycounter[fnname] = map.entrycounter[fnname] - 1;
                         })
