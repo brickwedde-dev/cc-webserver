@@ -2,6 +2,16 @@ const http = require("http");
 const https = require("https");
 const fs = require('fs').promises;
 const fssync = require('fs');
+const pkg = require.main.require('./package.json');
+const ACME = require('acme');
+const Keypairs = require('@root/keypairs');
+const punycode = require('punycode');
+const CSR = require('@root/csr');
+const PEM = require('@root/pem');
+const acmewebroot = require('acme-http-01-webroot')
+const cert2json = require('cert2json')
+const Buffer = require('buffer').Buffer;
+
 class InstantiateClass {
   constructor() {
   }
@@ -59,7 +69,7 @@ module.exports = {
       directoryUrl = 'https://acme-v02.api.letsencrypt.org/directory';
       await acme.init(directoryUrl);
 
-      if (!await fssync.existsSync("./account.pem")) {
+      if (!fssync.existsSync("./account.pem")) {
         console.log("Creating accountkey");
         var accountKeypair = await Keypairs.generate({ kty: 'EC', format: 'jwk' });
         var accountKey = accountKeypair.private;
@@ -79,7 +89,7 @@ module.exports = {
       });
       console.info('created account with id', account.key.kid);
 
-      if (!await fssync.existsSync('./key.pem')) {
+      if (!fssync.existsSync('./key.pem')) {
         console.log("creating server key");
         var serverKeypair = await Keypairs.generate({ kty: 'RSA', format: 'jwk' });
         var serverKey = serverKeypair.private;
@@ -118,6 +128,9 @@ module.exports = {
       process.exit();
     };
 
+    setTimeout(() => {
+      this.runLetsencrypt();
+    }, 1000);
     setInterval(() => {
       this.runLetsencrypt();
     }, 24 * 3600 * 1000);
