@@ -129,9 +129,6 @@ module.exports = {
       process.exit();
     };
 
-    setTimeout(() => {
-      this.runLetsencrypt();
-    }, 1000);
     setInterval(() => {
       this.runLetsencrypt();
     }, 24 * 3600 * 1000);
@@ -170,6 +167,7 @@ module.exports = {
     };
 
     var instances = {};
+    var failcount = {}
 
     const mime = (filename) => {
       filename = filename.toLowerCase();
@@ -185,6 +183,13 @@ module.exports = {
 
     const requestListener = function (req, res) {
       try {
+        if (failcount[req.socket.remoteAddress] > 10) {
+          res.setHeader("Location", "https://" + req.socket.remoteAddress);
+          res.writeHead(308);
+          res.end("");
+          return
+        }
+
         var requrl = decodeURIComponent(req.url);
         var i = requrl.indexOf("?");
         if (i >= 0) {
@@ -234,6 +239,9 @@ module.exports = {
 
                 fs.writeFile(process.cwd() + "/" + map.uploadfolder + "/" + filename, content)
                   .then(() => {
+                    if (failcount[req.socket.remoteAddress] > 0) {
+                      failcount[req.socket.remoteAddress]--
+                    }
                     res.writeHead(200);
                     res.end("");
                   })
@@ -258,6 +266,10 @@ module.exports = {
                 if (map.handleobject.handlerequest) {
                   map.handleobject.handlerequest(oInfo, req, res, requrl);
                 } else {
+                  if (!failcount[req.socket.remoteAddress]) {
+                    failcount[req.socket.remoteAddress] = 0
+                  }
+                  failcount[req.socket.remoteAddress]++
                   res.writeHead(404);
                 }
               })
@@ -286,9 +298,17 @@ module.exports = {
                       }
                       res.writeHead(200);
                       res.end(contents);
+
+                      if (failcount[req.socket.remoteAddress] > 0) {
+                        failcount[req.socket.remoteAddress]--
+                      }
                     });
                 })
                 .catch(err => {
+                  if (!failcount[req.socket.remoteAddress]) {
+                    failcount[req.socket.remoteAddress] = 0
+                  }
+                  failcount[req.socket.remoteAddress]++
                   res.writeHead(404);
                   res.end("" + map.staticfile + " not found");
                 });
@@ -305,6 +325,9 @@ module.exports = {
               if (file.endsWith("@all.js")) {
                 fs.readdir(process.cwd() + "/" + map.staticfile + "/" + file.slice(0, -7))
                   .then(async (files) => {
+                    if (failcount[req.socket.remoteAddress] > 0) {
+                      failcount[req.socket.remoteAddress]--
+                    }
                     res.writeHead(200);
                     files.sort((a, b) => {
                       return a.localeCompare(b);
@@ -340,6 +363,10 @@ module.exports = {
                     res.setHeader("Cache-Control", "max-age=600");
                   }
                   res.writeHead(200);
+
+                  if (failcount[req.socket.remoteAddress] > 0) {
+                    failcount[req.socket.remoteAddress]--
+                  }
 
                   if (stats.size > 102400) {
                     let oInfo = { count: 0 };
@@ -393,6 +420,10 @@ module.exports = {
 //                  console.error(err);
                   res.setHeader("X-Exception", `${err}`);
                   try {
+                    if (!failcount[req.socket.remoteAddress]) {
+                      failcount[req.socket.remoteAddress] = 0
+                    }
+                    failcount[req.socket.remoteAddress]++
                     res.writeHead(404);
                     res.end("" + map.staticfile + "/" + file + " not found");
                   }
@@ -420,6 +451,10 @@ module.exports = {
                 }
 
                 promise.then(() => {
+                  if (failcount[req.socket.remoteAddress] > 0) {
+                    failcount[req.socket.remoteAddress]--
+                  }
+
                   res.writeHead(200, {
                     'Content-Type': 'text/event-stream',
                     'Cache-Control': 'no-cache',
@@ -516,6 +551,10 @@ module.exports = {
                       'Cache-Control': 'no-cache',
                     });
                     res.end(JSON.stringify({ ok: true }));
+
+                    if (failcount[req.socket.remoteAddress] > 0) {
+                      failcount[req.socket.remoteAddress]--
+                    }
                     return;
                   }
 
@@ -552,12 +591,20 @@ module.exports = {
                             if (x instanceof WebserverResponseSent) {
 
                             } else if (oInfo.htmltemplate) {
+                              if (failcount[req.socket.remoteAddress] > 0) {
+                                failcount[req.socket.remoteAddress]--
+                              }
+
                               res.writeHead(200, {
                                 'Content-Type': "text/html",
                                 'Cache-Control': 'no-cache',
                               });
                               res.end(oInfo.htmltemplate.replace(/@@/, x));
                             } else {
+                              if (failcount[req.socket.remoteAddress] > 0) {
+                                failcount[req.socket.remoteAddress]--
+                              }
+
                               x = JSON.stringify(x);
                               res.writeHead(200, {
                                 'Content-Type': "application/json; charset=utf-8",
@@ -589,12 +636,18 @@ module.exports = {
                       } else {
                         map.entrycounter[fnname] = map.entrycounter[fnname] - 1;
                         if (oInfo.htmltemplate) {
+                          if (failcount[req.socket.remoteAddress] > 0) {
+                            failcount[req.socket.remoteAddress]--
+                          }
                           res.writeHead(200, {
                             'Content-Type': "text/html",
                             'Cache-Control': 'no-cache',
                           });
                           res.end(oInfo.htmltemplate.replace(/@@/, result));
                         } else {
+                          if (failcount[req.socket.remoteAddress] > 0) {
+                            failcount[req.socket.remoteAddress]--
+                          }
                           result = JSON.stringify(result)
                           res.writeHead(200, {
                             'Content-Type': "application/json; charset=utf-8",
@@ -671,6 +724,9 @@ module.exports = {
                         obj,
                         lastused: id,
                       };
+                      if (failcount[req.socket.remoteAddress] > 0) {
+                        failcount[req.socket.remoteAddress]--
+                      }
                       res.writeHead(200, {
                         'Content-Type': "application/json; charset=utf-8",
                         'Cache-Control': 'no-cache',
@@ -713,6 +769,9 @@ module.exports = {
                         });
                         res.end("instance not found!");
                         return;
+                      }
+                      if (failcount[req.socket.remoteAddress] > 0) {
+                        failcount[req.socket.remoteAddress]--
                       }
                       if (instances[id].obj[fnname] instanceof Function) {
                         res.writeHead(200, {
@@ -765,6 +824,9 @@ module.exports = {
                         res.end("instance not found!");
                         return;
                       }
+                      if (failcount[req.socket.remoteAddress] > 0) {
+                        failcount[req.socket.remoteAddress]--
+                      }
                       res.writeHead(200, {
                         'Content-Type': "application/json; charset=utf-8",
                         'Cache-Control': 'no-cache',
@@ -809,6 +871,9 @@ module.exports = {
                         return;
                       }
                       instances[id].obj[fnname] = parameters[0];
+                      if (failcount[req.socket.remoteAddress] > 0) {
+                        failcount[req.socket.remoteAddress]--
+                      }
                       res.writeHead(200, {
                         'Content-Type': "application/json; charset=utf-8",
                         'Cache-Control': 'no-cache',
@@ -849,6 +914,9 @@ module.exports = {
                       if (result instanceof Promise) {
                         result
                           .then((x) => {
+                            if (failcount[req.socket.remoteAddress] > 0) {
+                              failcount[req.socket.remoteAddress]--
+                            }
                             if (oInfo.htmltemplate) {
                               res.writeHead(200, {
                                 'Content-Type': "text/html",
@@ -880,6 +948,9 @@ module.exports = {
                             }
                           });
                       } else {
+                        if (failcount[req.socket.remoteAddress] > 0) {
+                          failcount[req.socket.remoteAddress]--
+                        }
                         if (oInfo.htmltemplate) {
                           res.writeHead(200, {
                             'Content-Type': "text/html",
@@ -935,6 +1006,11 @@ module.exports = {
         return
       }
       
+      if (!failcount[req.socket.remoteAddress]) {
+        failcount[req.socket.remoteAddress] = 0
+      }
+      failcount[req.socket.remoteAddress]++
+
       console.log("Not found, Host:" + req.headers.host + ", URL:" + req.url);
       res.writeHead(404);
       res.end("Not found!");
@@ -968,7 +1044,7 @@ module.exports = {
       });
     }
 
-    return { server, options, mimemapping };
+    return { server, options, mimemapping, failcount };
   },
 
   InstantiateClass: InstantiateClass,
