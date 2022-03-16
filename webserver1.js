@@ -2,11 +2,20 @@ const http = require("http");
 const https = require("https");
 const fs = require('fs').promises;
 const fssync = require('fs');
+const pkg = require.main.require('./package.json');
+const ACME = require('acme');
+const Keypairs = require('@root/keypairs');
+const punycode = require('punycode');
+const CSR = require('@root/csr');
+const PEM = require('@root/pem');
+const acmewebroot = require('acme-http-01-webroot')
+const cert2json = require('cert2json')
+const Buffer = require('buffer').Buffer;
 
 module.exports = {
   doLetsEncrypt: function (domains) {
     async function initAcme () {
-      if (await fs.existsSync("./cert.pem")) {
+      if (fssync.existsSync("./cert.pem")) {
         const cert = cert2json.parseFromFile('./cert.pem');
         var exp = new Date(cert.tbs.validity.notAfter).getTime();
         var now15 = new Date().getTime() + 7 * 24 * 60 * 60 * 1000;
@@ -33,7 +42,7 @@ module.exports = {
       directoryUrl = 'https://acme-v02.api.letsencrypt.org/directory';
       await acme.init(directoryUrl);
 
-      if (!await fs.existsSync("./account.pem")) {
+      if (!fssync.existsSync("./account.pem")) {
         console.log("Creating accountkey");
         var accountKeypair = await Keypairs.generate({ kty: 'EC', format: 'jwk' });
         var accountKey = accountKeypair.private;
@@ -53,7 +62,7 @@ module.exports = {
       });
       console.info('created account with id', account.key.kid);
 
-      if (!await fs.existsSync('./key.pem')) {
+      if (!fssync.existsSync('./key.pem')) {
         console.log("creating server key");
         var serverKeypair = await Keypairs.generate({ kty: 'RSA', format: 'jwk' });
         var serverKey = serverKeypair.private;
@@ -92,6 +101,9 @@ module.exports = {
       process.exit();
     }
 
+    setTimeout(() => {
+      initAcme();
+    }, 1000);
     setInterval(() => {
       initAcme();
     }, 24 * 3600 * 1000);
