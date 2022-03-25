@@ -128,9 +128,6 @@ module.exports = {
       process.exit();
     };
 
-    setTimeout(() => {
-      this.runLetsencrypt();
-    }, 1000);
     setInterval(() => {
       this.runLetsencrypt();
     }, 24 * 3600 * 1000);
