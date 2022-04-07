@@ -291,7 +291,7 @@ module.exports = {
                       res.setHeader("Content-Type", contType);
                       res.setHeader("Last-Modified", new Date(stats.mtime));
                       res.setHeader("eTag", "\"" + stats.mtime + "\"");
-                      if (contType == "text/html" || contType == "text/javascript" || map.staticfile.slice(-3) == ".js" || map.staticfile.slice(-5) == ".html") {
+                      if (map.nocache || contType == "text/html" || contType == "text/javascript" || map.staticfile.slice(-3) == ".js" || map.staticfile.slice(-5) == ".html") {
                         res.setHeader("Cache-Control", "no-cache");
                       } else {
                         res.setHeader("Cache-Control", "max-age=600");
@@ -357,7 +357,7 @@ module.exports = {
                   res.setHeader("Content-Length", stats.size);
                   res.setHeader("Last-Modified", new Date(stats.mtime));
                   res.setHeader("eTag", "\"" + stats.mtime + "\"");
-                  if (contType == "text/html" || contType == "text/javascript" || file.slice(-3) == ".js" || file.slice(-5) == ".html") {
+                  if (map.nocache || contType == "text/html" || contType == "text/javascript" || file.slice(-3) == ".js" || file.slice(-5) == ".html") {
                     res.setHeader("Cache-Control", "no-cache");
                   } else {
                     res.setHeader("Cache-Control", "max-age=600");
