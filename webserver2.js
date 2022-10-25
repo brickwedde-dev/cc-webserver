@@ -147,8 +147,8 @@ module.exports = {
 
 
     if (server && domains) {
-      let key = fs.readFileSync('./key.pem');
-      let cert = fs.readFileSync('./cert.pem');
+      let key = fssync.readFileSync('./key.pem');
+      let cert = fssync.readFileSync('./cert.pem');
       let context = tls.createSecureContext({ key, cert });
 
       for(var i = 0; i < domains.length; i++) {
