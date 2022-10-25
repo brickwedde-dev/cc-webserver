@@ -19,6 +19,7 @@ module.exports = {
                 "zip" : "application/zip",
                 "mp4" : "video/mp4",
                 "mpeg" : "video/mpeg",
+                "apk": "application/vnd.android.package-archive",
             };
             filename = filename.toLowerCase();
             var i = filename.lastIndexOf(".");
