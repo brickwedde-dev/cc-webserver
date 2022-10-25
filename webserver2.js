@@ -127,13 +127,18 @@ module.exports = {
     };
 
     console.info('validating domain authorization for ' + domains.join(' '));
-    var pems = await acme.certificates.create({
-      account,
-      accountKey,
-      csr,
-      domains,
-      challenges
-    });
+    try {
+      var pems = await acme.certificates.create({
+        account,
+        accountKey,
+        csr,
+        domains,
+        challenges
+      });
+    } catch (e) {
+      console.info('exception:' + e);
+      return;
+    }
 
     var fullchain = pems.cert + '\n' + pems.chain + '\n';
 
