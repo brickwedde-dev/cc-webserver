@@ -278,7 +278,7 @@ module.exports = {
               var promise = Promise.resolve();
               if (map.handleobject.checksession) {
                 let user = {};
-                promise = map.handleobject.checksession(oInfo, req, res, user, fnname);
+                promise = map.handleobject.checksession(oInfo, req, res);
               }
 
               promise.then(() => {
