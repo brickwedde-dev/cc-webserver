@@ -1004,7 +1004,7 @@ module.exports = {
                   }
 
 
-                  throw "Unknown what";
+                  throw `Unknown what '${what}'`;
                 } catch (e) {
                   res.writeHead(500, {
                     'Content-Type': "text/plain",
