@@ -14,6 +14,8 @@ const cert2json = require('cert2json');
 const Buffer = require('buffer').Buffer;
 const classConstructors = {};
 
+var maintainerEmail = "nobody@invalid.domain.name";
+
 class InstantiateClass {
   constructor() {
   }
@@ -74,7 +76,7 @@ async function runLetsencryptv2 (domains, key, cert) {
     console.log(ev, msg.altname || '', msg.status || '');
   }
 
-  const acme = ACME.create({ maintainerEmail: "alex_letsencrypt@brickwedde.de", packageAgent, notify });
+  const acme = ACME.create({ maintainerEmail: maintainerEmail, packageAgent, notify });
   var directoryUrl = 'https://acme-staging-v02.api.letsencrypt.org/directory';
   directoryUrl = 'https://acme-v02.api.letsencrypt.org/directory';
   await acme.init(directoryUrl);
@@ -93,7 +95,7 @@ async function runLetsencryptv2 (domains, key, cert) {
   var agreeToTerms = true;
 
   var account = await acme.accounts.create({
-    subscriberEmail: "alex_letsencrypt@brickwedde.de",
+    subscriberEmail: maintainerEmail,
     agreeToTerms,
     accountKey
   });
@@ -152,6 +154,10 @@ function reloadcert (server, keyfile, certfile) {
 }
 
 module.exports = {
+  setMaintainerEmail: function (email) {
+    maintainerEmail = email;
+  },
+
   addInstantiateClass: function (theConstructor) {
     classConstructors[theConstructor.name] = theConstructor;
   },
