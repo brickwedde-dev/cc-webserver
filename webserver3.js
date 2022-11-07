@@ -148,8 +148,14 @@ function reloadcert (server, keyfile, certfile) {
   console.log("read certs");
   let key = fssync.readFileSync(keyfile);
   let cert = fssync.readFileSync(certfile);
+
+  server._sharedCreds.context.setCert(cert);
+  server._sharedCreds.context.setKey(key);
+
+/*
   let context = tls.createSecureContext({ key, cert });
   server.setSecureContext(context);
+*/
   console.log("ready");
 }
 
