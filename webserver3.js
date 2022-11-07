@@ -483,6 +483,7 @@ module.exports = {
                   res.writeHead(200, {
                     'Content-Type': 'text/event-stream',
                     'Cache-Control': 'no-cache',
+                    'Vary': '*',
                   });
 
                   if (!map.apiobject.__internal_sseconnections) {
@@ -508,6 +509,7 @@ module.exports = {
                     res.writeHead(500, {
                       'Content-Type': "text/plain",
                       'Cache-Control': 'no-cache',
+                      'Vary': '*',
                     });
                     res.end("" + e);
                   });
@@ -540,6 +542,7 @@ module.exports = {
                   res.writeHead(500, {
                     'Content-Type': "text/plain",
                     'Cache-Control': 'no-cache',
+                    'Vary': '*',
                   });
                   res.end("Failed on body: " + body + ", " + e);
                   return;
@@ -574,6 +577,7 @@ module.exports = {
                     res.writeHead(200, {
                       'Content-Type': "application/json; charset=utf-8",
                       'Cache-Control': 'no-cache',
+                      'Vary': '*',
                     });
                     res.end(JSON.stringify({ ok: true }));
 
@@ -623,6 +627,7 @@ module.exports = {
                               res.writeHead(200, {
                                 'Content-Type': "text/html",
                                 'Cache-Control': 'no-cache',
+                                'Vary': '*',
                               });
                               res.end(oInfo.htmltemplate.replace(/@@/, x));
                             } else {
@@ -634,6 +639,7 @@ module.exports = {
                               res.writeHead(200, {
                                 'Content-Type': "application/json; charset=utf-8",
                                 'Cache-Control': 'no-cache',
+                                'Vary': '*',
                               });
                               res.end(x);
                             }
@@ -645,12 +651,14 @@ module.exports = {
                               res.writeHead(500, {
                                 'Content-Type': "text/html",
                                 'Cache-Control': 'no-cache',
+                                'Vary': '*',
                               });
                               res.end(oInfo.htmltemplate.replace(/@@/, e));
                             } else {
                               res.writeHead(500, {
                                 'Content-Type': "text/plain",
                                 'Cache-Control': 'no-cache',
+                                'Vary': '*',
                                 "X-Exception": "" + ("" + e).replace(/[^\x20-\x7F]/g, ""),
                               });
                               res.end("" + e);
@@ -667,6 +675,7 @@ module.exports = {
                           res.writeHead(200, {
                             'Content-Type': "text/html",
                             'Cache-Control': 'no-cache',
+                            'Vary': '*',
                           });
                           res.end(oInfo.htmltemplate.replace(/@@/, result));
                         } else {
@@ -677,6 +686,7 @@ module.exports = {
                           res.writeHead(200, {
                             'Content-Type': "application/json; charset=utf-8",
                             'Cache-Control': 'no-cache',
+                            'Vary': '*',
                           });
                           res.end(result);
                         }
@@ -687,12 +697,14 @@ module.exports = {
                           res.writeHead(403, {
                             'Content-Type': "text/html",
                             'Cache-Control': 'no-cache',
+                            'Vary': '*',
                           });
                           res.end(oInfo.htmltemplate.replace(/@@/, "User unauthorized by apiobject: " + w));
                         } else {
                           res.writeHead(403, {
                             'Content-Type': "text/plain",
                             'Cache-Control': 'no-cache',
+                            'Vary': '*',
                           });
                           res.end("User unauthorized by apiobject: " + w);
                         }
@@ -707,6 +719,7 @@ module.exports = {
                       res.writeHead(403, {
                         'Content-Type': "text/plain",
                         'Cache-Control': 'no-cache',
+                        'Vary': '*',
                       });
                       res.end("construct not allowed: " + fnname);
                       return;
@@ -755,6 +768,7 @@ module.exports = {
                       res.writeHead(200, {
                         'Content-Type': "application/json; charset=utf-8",
                         'Cache-Control': 'no-cache',
+                        'Vary': '*',
                         'X-InstanceNo': id,
                       });
                       res.end("");
@@ -764,12 +778,14 @@ module.exports = {
                           res.writeHead(403, {
                             'Content-Type': "text/html",
                             'Cache-Control': 'no-cache',
+                            'Vary': '*',
                           });
                           res.end(oInfo.htmltemplate.replace(/@@/, "User unauthorized by apiobject: " + w));
                         } else {
                           res.writeHead(403, {
                             'Content-Type': "text/plain",
                             'Cache-Control': 'no-cache',
+                            'Vary': '*',
                           });
                           res.end("User unauthorized by apiobject: " + w);
                         }
@@ -791,6 +807,7 @@ module.exports = {
                         res.writeHead(403, {
                           'Content-Type': "application/json; charset=utf-8",
                           'Cache-Control': 'no-cache',
+                          'Vary': '*',
                         });
                         res.end("instance not found!");
                         return;
@@ -802,6 +819,7 @@ module.exports = {
                         res.writeHead(200, {
                           'Content-Type': "application/json; charset=utf-8",
                           'Cache-Control': 'no-cache',
+                          'Vary': '*',
                           'X-PropertyType': 'function',
                         });
                         res.end("");
@@ -809,6 +827,7 @@ module.exports = {
                         res.writeHead(200, {
                           'Content-Type': "application/json; charset=utf-8",
                           'Cache-Control': 'no-cache',
+                          'Vary': '*',
                           'X-PropertyType': 'json',
                         });
                         res.end(JSON.stringify(instances[id].obj[fnname]));
@@ -819,12 +838,14 @@ module.exports = {
                           res.writeHead(403, {
                             'Content-Type': "text/html",
                             'Cache-Control': 'no-cache',
+                            'Vary': '*',
                           });
                           res.end(oInfo.htmltemplate.replace(/@@/, "User unauthorized by apiobject: " + w));
                         } else {
                           res.writeHead(403, {
                             'Content-Type': "text/plain",
                             'Cache-Control': 'no-cache',
+                            'Vary': '*',
                           });
                           res.end("User unauthorized by apiobject: " + w);
                         }
@@ -845,6 +866,7 @@ module.exports = {
                         res.writeHead(403, {
                           'Content-Type': "application/json; charset=utf-8",
                           'Cache-Control': 'no-cache',
+                          'Vary': '*',
                         });
                         res.end("instance not found!");
                         return;
@@ -855,6 +877,7 @@ module.exports = {
                       res.writeHead(200, {
                         'Content-Type': "application/json; charset=utf-8",
                         'Cache-Control': 'no-cache',
+                        'Vary': '*',
                         'X-PropertyType': 'function',
                       });
                       res.end(JSON.stringify(instances[id].obj));
@@ -864,12 +887,14 @@ module.exports = {
                           res.writeHead(403, {
                             'Content-Type': "text/html",
                             'Cache-Control': 'no-cache',
+                            'Vary': '*',
                           });
                           res.end(oInfo.htmltemplate.replace(/@@/, "User unauthorized by apiobject: " + w));
                         } else {
                           res.writeHead(403, {
                             'Content-Type': "text/plain",
                             'Cache-Control': 'no-cache',
+                            'Vary': '*',
                           });
                           res.end("User unauthorized by apiobject: " + w);
                         }
@@ -891,6 +916,7 @@ module.exports = {
                         res.writeHead(403, {
                           'Content-Type': "application/json; charset=utf-8",
                           'Cache-Control': 'no-cache',
+                          'Vary': '*',
                         });
                         res.end("instance not found!");
                         return;
@@ -902,6 +928,7 @@ module.exports = {
                       res.writeHead(200, {
                         'Content-Type': "application/json; charset=utf-8",
                         'Cache-Control': 'no-cache',
+                        'Vary': '*',
                         'X-PropertyType': 'json',
                       });
                       res.end(JSON.stringify(instances[id].obj[fnname]));
@@ -911,12 +938,14 @@ module.exports = {
                           res.writeHead(403, {
                             'Content-Type': "text/html",
                             'Cache-Control': 'no-cache',
+                            'Vary': '*',
                           });
                           res.end(oInfo.htmltemplate.replace(/@@/, "User unauthorized by apiobject: " + w));
                         } else {
                           res.writeHead(403, {
                             'Content-Type': "text/plain",
                             'Cache-Control': 'no-cache',
+                            'Vary': '*',
                           });
                           res.end("User unauthorized by apiobject: " + w);
                         }
@@ -946,12 +975,14 @@ module.exports = {
                               res.writeHead(200, {
                                 'Content-Type': "text/html",
                                 'Cache-Control': 'no-cache',
+                                'Vary': '*',
                               });
                               res.end(oInfo.htmltemplate.replace(/@@/, x));
                             } else {
                               res.writeHead(200, {
                                 'Content-Type': "application/json; charset=utf-8",
                                 'Cache-Control': 'no-cache',
+                                'Vary': '*',
                               });
                               res.end(JSON.stringify(x));
                             }
@@ -961,12 +992,14 @@ module.exports = {
                               res.writeHead(500, {
                                 'Content-Type': "text/html",
                                 'Cache-Control': 'no-cache',
+                                'Vary': '*',
                               });
                               res.end(oInfo.htmltemplate.replace(/@@/, e));
                             } else {
                               res.writeHead(500, {
                                 'Content-Type': "text/plain",
                                 'Cache-Control': 'no-cache',
+                                'Vary': '*',
                                 "X-Exception": "" + e,
                               });
                               res.end("" + e);
@@ -980,12 +1013,14 @@ module.exports = {
                           res.writeHead(200, {
                             'Content-Type': "text/html",
                             'Cache-Control': 'no-cache',
+                            'Vary': '*',
                           });
                           res.end(oInfo.htmltemplate.replace(/@@/, result));
                         } else {
                           res.writeHead(200, {
                             'Content-Type': "application/json; charset=utf-8",
                             'Cache-Control': 'no-cache',
+                            'Vary': '*',
                           });
                           res.end(JSON.stringify(result));
                         }
@@ -996,12 +1031,14 @@ module.exports = {
                           res.writeHead(403, {
                             'Content-Type': "text/html",
                             'Cache-Control': 'no-cache',
+                            'Vary': '*',
                           });
                           res.end(oInfo.htmltemplate.replace(/@@/, "User unauthorized by apiobject: " + w));
                         } else {
                           res.writeHead(403, {
                             'Content-Type': "text/plain",
                             'Cache-Control': 'no-cache',
+                            'Vary': '*',
                           });
                           res.end("User unauthorized by apiobject: " + w);
                         }
@@ -1015,6 +1052,7 @@ module.exports = {
                   res.writeHead(500, {
                     'Content-Type': "text/plain",
                     'Cache-Control': 'no-cache',
+                    'Vary': '*',
                   });
                   res.end("Failed on function: " + e);
                   return;
