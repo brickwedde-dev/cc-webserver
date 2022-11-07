@@ -1068,7 +1068,9 @@ module.exports = {
     }
 
     if (key && cert) {
-      setInterval(() => { runLetsencryptv2 (domains, key, cert); }, 24 * 3600 * 1000);
+      if (domains) {
+        setInterval(() => { runLetsencryptv2 (domains, key, cert); }, 24 * 3600 * 1000);
+      }
       const reloadcertkey = debounce(() => { console.log("cert files refreshed"); reloadcert(server, key, cert); }, 10000);
       fssync.watch(key, reloadcertkey);
       fssync.watch(cert, reloadcertkey);
