@@ -466,7 +466,6 @@ module.exports = {
             }
 
             if (map.apiobject) {
-              console.log(requrl + " has apiobject");
               let what = requrl.substr(map.urlprefix.length + 1);
               if (what.substring(0, 14) == "sse/connection") {
                 let fnname = "__SSE__";
@@ -524,11 +523,9 @@ module.exports = {
 
               var body = '';
               req.on('data', function (data) {
-                console.log(requrl + " on data");
                 body += data;
               });
               req.on('end', function () {
-                console.log(requrl + " on end");
                 var parameters = [];
                 try {
                   if (!body) {
