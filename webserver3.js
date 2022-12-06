@@ -198,7 +198,9 @@ module.exports = {
     };
 
     var instances = {};
-    var failcount = {}
+    var failcount = {};
+
+    var openRequests = {};
 
     const mime = (filename) => {
       filename = filename.toLowerCase();
@@ -226,6 +228,11 @@ module.exports = {
         if (i >= 0) {
           requrl = requrl.substring(0, i);
         }
+
+        console.log("Request ", requrl);
+        openRequests[requrl] || (openRequests[requrl] = 0);
+        openRequests[requrl]++;
+
         for (var map of urlmapping) {
           if (map.hosts.length > 0 && map.hosts.lastIndexOf(req.headers.host) < 0 && map.hosts.lastIndexOf(req.headers[":authority"]) < 0) {
             continue;
@@ -236,50 +243,62 @@ module.exports = {
           if (bExact || bPrefix) {
             if (map.uploadfolder) {
               console.log(requrl + " has uploadfolder");
+              var promise = Promise.resolve();
               if (map.apiobject && map.apiobject.checksession) {
                 let user = {};
                 promise = map.apiobject.checksession({}, req, res, user, "");
               }
-
-              var body = '';
-              req.on('data', function (data) {
-                body += data;
-              });
-              req.on('end', function () {
-                var json = null;
-                try {
-                  json = body ? JSON.parse(body) : null;
-                } catch (e) {
-                }
-                if (!json || !json.filename || !json.content) {
-                  res.writeHead(500);
-                  res.end("");
-                }
-                var filename = json.filename;
-                filename = filename.replace(/\.\./g, "__");
-                filename = filename.replace(/\//g, "_");
-                filename = filename.replace(/\\/g, "_");
-                var b64 = json.content;
-                if (b64.substring(0, 5) == "data:") {
-                  var b64index = b64.indexOf("base64,");
-                  if (b64index >= 0) {
-                    b64 = b64.substring(b64index + 7);
+              
+              promise.then(() => {
+                var body = '';
+                req.on('data', function (data) {
+                  body += data;
+                });
+                req.on('end', function () {
+                  var json = null;
+                  try {
+                    json = body ? JSON.parse(body) : null;
+                  } catch (e) {
                   }
-                }
-                var content = Buffer.from(b64, "base64");
-
-                fs.writeFile(process.cwd() + "/" + map.uploadfolder + "/" + filename, content)
-                  .then(() => {
-                    if (failcount[req.socket.remoteAddress] > 0) {
-                      failcount[req.socket.remoteAddress]--
-                    }
-                    res.writeHead(200);
-                    res.end("");
-                  })
-                  .catch((e) => {
+                  if (!json || !json.filename || !json.content) {
                     res.writeHead(500);
-                    res.end("" + e);
-                  });
+                    res.end("");
+                    openRequests[requrl]--;
+                    return;
+                  }
+                  var filename = json.filename;
+                  filename = filename.replace(/\.\./g, "__");
+                  filename = filename.replace(/\//g, "_");
+                  filename = filename.replace(/\\/g, "_");
+                  var b64 = json.content;
+                  if (b64.substring(0, 5) == "data:") {
+                    var b64index = b64.indexOf("base64,");
+                    if (b64index >= 0) {
+                      b64 = b64.substring(b64index + 7);
+                    }
+                  }
+                  var content = Buffer.from(b64, "base64");
+
+                  fs.writeFile(process.cwd() + "/" + map.uploadfolder + "/" + filename, content)
+                    .then(() => {
+                      if (failcount[req.socket.remoteAddress] > 0) {
+                        failcount[req.socket.remoteAddress]--
+                      }
+                      res.writeHead(200);
+                      res.end("");
+                      openRequests[requrl]--;
+                    })
+                    .catch((e) => {
+                      res.writeHead(500);
+                      res.end("" + e);
+                      openRequests[requrl]--;
+                    });
+                });
+              })
+              .catch((e) => {
+                res.writeHead(500);
+                res.end("" + e);
+                openRequests[requrl]--;
               });
               return;
             }
@@ -296,18 +315,22 @@ module.exports = {
               promise.then(() => {
                 if (map.handleobject.handlerequest) {
                   map.handleobject.handlerequest(oInfo, req, res, requrl);
+                  openRequests[requrl]--;
                 } else {
                   if (!failcount[req.socket.remoteAddress]) {
                     failcount[req.socket.remoteAddress] = 0
                   }
                   failcount[req.socket.remoteAddress]++
                   res.writeHead(404);
+                  res.end("");
+                  openRequests[requrl]--;
                 }
               })
-                .catch((e) => {
-                  res.writeHead(500);
-                  res.end("" + e);
-                });
+              .catch((e) => {
+                res.writeHead(500);
+                res.end("" + e);
+                openRequests[requrl]--;
+              });
               return;
             }
           }
@@ -315,34 +338,36 @@ module.exports = {
           if (bExact) {
             if (map.staticfile) {
               fs.readFile(process.cwd() + "/" + map.staticfile)
-                .then(contents => {
-                  fs.stat(process.cwd() + "/" + map.staticfile)
-                    .then((stats) => {
-                      var contType = mime(map.staticfile);
-                      res.setHeader("Content-Type", contType);
-                      res.setHeader("Last-Modified", new Date(stats.mtime));
-                      res.setHeader("eTag", "\"" + stats.mtime + "\"");
-                      if (map.nocache || contType == "text/html" || contType == "text/javascript" || map.staticfile.slice(-3) == ".js" || map.staticfile.slice(-5) == ".html") {
-                        res.setHeader("Cache-Control", "no-cache");
-                      } else {
-                        res.setHeader("Cache-Control", "max-age=600");
-                      }
-                      res.writeHead(200);
-                      res.end(contents);
-
-                      if (failcount[req.socket.remoteAddress] > 0) {
-                        failcount[req.socket.remoteAddress]--
-                      }
-                    });
-                })
-                .catch(err => {
-                  if (!failcount[req.socket.remoteAddress]) {
-                    failcount[req.socket.remoteAddress] = 0
+              .then(contents => {
+                fs.stat(process.cwd() + "/" + map.staticfile)
+                .then((stats) => {
+                  var contType = mime(map.staticfile);
+                  res.setHeader("Content-Type", contType);
+                  res.setHeader("Last-Modified", new Date(stats.mtime));
+                  res.setHeader("eTag", "\"" + stats.mtime + "\"");
+                  if (map.nocache || contType == "text/html" || contType == "text/javascript" || map.staticfile.slice(-3) == ".js" || map.staticfile.slice(-5) == ".html") {
+                    res.setHeader("Cache-Control", "no-cache");
+                  } else {
+                    res.setHeader("Cache-Control", "max-age=600");
                   }
-                  failcount[req.socket.remoteAddress]++
-                  res.writeHead(404);
-                  res.end("" + map.staticfile + " not found");
+                  res.writeHead(200);
+                  res.end(contents);
+                  openRequests[requrl]--;
+
+                  if (failcount[req.socket.remoteAddress] > 0) {
+                    failcount[req.socket.remoteAddress]--
+                  }
                 });
+              })
+              .catch(err => {
+                if (!failcount[req.socket.remoteAddress]) {
+                  failcount[req.socket.remoteAddress] = 0
+                }
+                failcount[req.socket.remoteAddress]++
+                res.writeHead(404);
+                res.end("" + map.staticfile + " not found");
+                openRequests[requrl]--;
+              });
             }
             return;
           }
@@ -352,7 +377,6 @@ module.exports = {
               console.log(requrl + " has staticfile");
               var file = requrl.substring(map.urlprefix.length);
               file = file.replace(/\.\./g, "__");
-
               if (file.endsWith("@all.js")) {
                 fs.readdir(process.cwd() + "/" + map.staticfile + "/" + file.slice(0, -7))
                   .then(async (files) => {
@@ -373,10 +397,12 @@ module.exports = {
                       }
                     }
                     res.end("");
+                    openRequests[requrl]--;
                   })
                   .catch((e) => {
                     res.writeHead(500);
                     res.end(file + ":" + "" + e);
+                    openRequests[requrl]--;
                   });
                 return;
               }
@@ -436,6 +462,7 @@ module.exports = {
                         }
                       }
                       res.end();
+                      openRequests[requrl]--;
                     } catch (e) {
                       res.stream.destroy();
                     }
@@ -444,6 +471,7 @@ module.exports = {
                     fs.readFile(process.cwd() + "/" + map.staticfile + "/" + file)
                       .then(contents => {
                         res.end(contents);
+                        openRequests[requrl]--;
                       });
                   }
                 })
@@ -457,6 +485,7 @@ module.exports = {
                     failcount[req.socket.remoteAddress]++
                     res.writeHead(404);
                     res.end("" + map.staticfile + "/" + file + " not found");
+                    openRequests[requrl]--;
                   }
                   catch (e) {
                     res.stream.destroy();
@@ -507,6 +536,7 @@ module.exports = {
                     if (index >= 0) {
                       map.apiobject.__internal_sseconnections.splice(index, 1);
                     }
+                    openRequests[requrl]--;
                   });
                 })
                   .catch((e) => {
@@ -517,6 +547,7 @@ module.exports = {
                       'Vary': '*',
                     });
                     res.end("" + e);
+                    openRequests[requrl]--;
                   });
                 return;
               }
@@ -548,6 +579,7 @@ module.exports = {
                     'Vary': '*',
                   });
                   res.end("Failed on body: " + body + ", " + e);
+                  openRequests[requrl]--;
                   return;
                 }
                 try {
@@ -583,6 +615,7 @@ module.exports = {
                       'Vary': '*',
                     });
                     res.end(JSON.stringify({ ok: true }));
+                    openRequests[requrl]--;
 
                     if (failcount[req.socket.remoteAddress] > 0) {
                       failcount[req.socket.remoteAddress]--
@@ -633,6 +666,7 @@ module.exports = {
                                 'Vary': '*',
                               });
                               res.end(oInfo.htmltemplate.replace(/@@/, x));
+                              openRequests[requrl]--;
                             } else {
                               if (failcount[req.socket.remoteAddress] > 0) {
                                 failcount[req.socket.remoteAddress]--
@@ -645,6 +679,7 @@ module.exports = {
                                 'Vary': '*',
                               });
                               res.end(x);
+                              openRequests[requrl]--;
                             }
                             map.entrycounter[fnname] = map.entrycounter[fnname] - 1;
                           })
@@ -657,6 +692,7 @@ module.exports = {
                                 'Vary': '*',
                               });
                               res.end(oInfo.htmltemplate.replace(/@@/, e));
+                              openRequests[requrl]--;
                             } else {
                               res.writeHead(500, {
                                 'Content-Type': "text/plain",
@@ -665,10 +701,12 @@ module.exports = {
                                 "X-Exception": "" + ("" + e).replace(/[^\x20-\x7F]/g, ""),
                               });
                               res.end("" + e);
+                              openRequests[requrl]--;
                             }
                           });
                       } else if (result instanceof WebserverResponseSent) {
                         map.entrycounter[fnname] = map.entrycounter[fnname] - 1;
+                        openRequests[requrl]--;
                       } else {
                         map.entrycounter[fnname] = map.entrycounter[fnname] - 1;
                         if (oInfo.htmltemplate) {
@@ -681,6 +719,7 @@ module.exports = {
                             'Vary': '*',
                           });
                           res.end(oInfo.htmltemplate.replace(/@@/, result));
+                          openRequests[requrl]--;
                         } else {
                           if (failcount[req.socket.remoteAddress] > 0) {
                             failcount[req.socket.remoteAddress]--
@@ -692,6 +731,7 @@ module.exports = {
                             'Vary': '*',
                           });
                           res.end(result);
+                          openRequests[requrl]--;
                         }
                       }
                     })
@@ -703,6 +743,7 @@ module.exports = {
                             'Vary': '*',
                           });
                           res.end(oInfo.htmltemplate.replace(/@@/, "User unauthorized by apiobject: " + w));
+                          openRequests[requrl]--;
                         } else {
                           res.writeHead(403, {
                             'Content-Type': "text/plain",
@@ -710,6 +751,7 @@ module.exports = {
                             'Vary': '*',
                           });
                           res.end("User unauthorized by apiobject: " + w);
+                          openRequests[requrl]--;
                         }
                       });
                     return;
@@ -725,6 +767,7 @@ module.exports = {
                         'Vary': '*',
                       });
                       res.end("construct not allowed: " + fnname);
+                      openRequests[requrl]--;
                       return;
                     }
                     var oInfo = {};
@@ -775,6 +818,7 @@ module.exports = {
                         'X-InstanceNo': id,
                       });
                       res.end("");
+                      openRequests[requrl]--;
                     })
                       .catch((w) => {
                         if (oInfo.htmltemplate) {
@@ -784,6 +828,7 @@ module.exports = {
                             'Vary': '*',
                           });
                           res.end(oInfo.htmltemplate.replace(/@@/, "User unauthorized by apiobject: " + w));
+                          openRequests[requrl]--;
                         } else {
                           res.writeHead(403, {
                             'Content-Type': "text/plain",
@@ -791,6 +836,7 @@ module.exports = {
                             'Vary': '*',
                           });
                           res.end("User unauthorized by apiobject: " + w);
+                          openRequests[requrl]--;
                         }
                       });
                     return;
@@ -813,6 +859,7 @@ module.exports = {
                           'Vary': '*',
                         });
                         res.end("instance not found!");
+                        openRequests[requrl]--;
                         return;
                       }
                       if (failcount[req.socket.remoteAddress] > 0) {
@@ -826,6 +873,7 @@ module.exports = {
                           'X-PropertyType': 'function',
                         });
                         res.end("");
+                        openRequests[requrl]--;
                       } else {
                         res.writeHead(200, {
                           'Content-Type': "application/json; charset=utf-8",
@@ -834,6 +882,7 @@ module.exports = {
                           'X-PropertyType': 'json',
                         });
                         res.end(JSON.stringify(instances[id].obj[fnname]));
+                        openRequests[requrl]--;
                       }
                     })
                       .catch((w) => {
@@ -844,6 +893,7 @@ module.exports = {
                             'Vary': '*',
                           });
                           res.end(oInfo.htmltemplate.replace(/@@/, "User unauthorized by apiobject: " + w));
+                          openRequests[requrl]--;
                         } else {
                           res.writeHead(403, {
                             'Content-Type': "text/plain",
@@ -851,6 +901,7 @@ module.exports = {
                             'Vary': '*',
                           });
                           res.end("User unauthorized by apiobject: " + w);
+                          openRequests[requrl]--;
                         }
                       });
                     return;
@@ -872,6 +923,7 @@ module.exports = {
                           'Vary': '*',
                         });
                         res.end("instance not found!");
+                        openRequests[requrl]--;
                         return;
                       }
                       if (failcount[req.socket.remoteAddress] > 0) {
@@ -884,6 +936,7 @@ module.exports = {
                         'X-PropertyType': 'function',
                       });
                       res.end(JSON.stringify(instances[id].obj));
+                      openRequests[requrl]--;
                     })
                       .catch((w) => {
                         if (oInfo.htmltemplate) {
@@ -893,6 +946,7 @@ module.exports = {
                             'Vary': '*',
                           });
                           res.end(oInfo.htmltemplate.replace(/@@/, "User unauthorized by apiobject: " + w));
+                          openRequests[requrl]--;
                         } else {
                           res.writeHead(403, {
                             'Content-Type': "text/plain",
@@ -900,6 +954,7 @@ module.exports = {
                             'Vary': '*',
                           });
                           res.end("User unauthorized by apiobject: " + w);
+                          openRequests[requrl]--;
                         }
                       });
                     return;
@@ -922,6 +977,7 @@ module.exports = {
                           'Vary': '*',
                         });
                         res.end("instance not found!");
+                        openRequests[requrl]--;
                         return;
                       }
                       instances[id].obj[fnname] = parameters[0];
@@ -935,6 +991,7 @@ module.exports = {
                         'X-PropertyType': 'json',
                       });
                       res.end(JSON.stringify(instances[id].obj[fnname]));
+                      openRequests[requrl]--;
                     })
                       .catch((w) => {
                         if (oInfo.htmltemplate) {
@@ -944,6 +1001,7 @@ module.exports = {
                             'Vary': '*',
                           });
                           res.end(oInfo.htmltemplate.replace(/@@/, "User unauthorized by apiobject: " + w));
+                          openRequests[requrl]--;
                         } else {
                           res.writeHead(403, {
                             'Content-Type': "text/plain",
@@ -951,6 +1009,7 @@ module.exports = {
                             'Vary': '*',
                           });
                           res.end("User unauthorized by apiobject: " + w);
+                          openRequests[requrl]--;
                         }
                       });
                     return;
@@ -981,6 +1040,7 @@ module.exports = {
                                 'Vary': '*',
                               });
                               res.end(oInfo.htmltemplate.replace(/@@/, x));
+                              openRequests[requrl]--;
                             } else {
                               res.writeHead(200, {
                                 'Content-Type': "application/json; charset=utf-8",
@@ -988,6 +1048,7 @@ module.exports = {
                                 'Vary': '*',
                               });
                               res.end(JSON.stringify(x));
+                              openRequests[requrl]--;
                             }
                           })
                           .catch((e) => {
@@ -998,6 +1059,7 @@ module.exports = {
                                 'Vary': '*',
                               });
                               res.end(oInfo.htmltemplate.replace(/@@/, e));
+                              openRequests[requrl]--;
                             } else {
                               res.writeHead(500, {
                                 'Content-Type': "text/plain",
@@ -1006,6 +1068,7 @@ module.exports = {
                                 "X-Exception": "" + e,
                               });
                               res.end("" + e);
+                              openRequests[requrl]--;
                             }
                           });
                       } else {
@@ -1019,6 +1082,7 @@ module.exports = {
                             'Vary': '*',
                           });
                           res.end(oInfo.htmltemplate.replace(/@@/, result));
+                          openRequests[requrl]--;
                         } else {
                           res.writeHead(200, {
                             'Content-Type': "application/json; charset=utf-8",
@@ -1026,6 +1090,7 @@ module.exports = {
                             'Vary': '*',
                           });
                           res.end(JSON.stringify(result));
+                          openRequests[requrl]--;
                         }
                       }
                     })
@@ -1037,6 +1102,7 @@ module.exports = {
                             'Vary': '*',
                           });
                           res.end(oInfo.htmltemplate.replace(/@@/, "User unauthorized by apiobject: " + w));
+                          openRequests[requrl]--;
                         } else {
                           res.writeHead(403, {
                             'Content-Type': "text/plain",
@@ -1044,6 +1110,7 @@ module.exports = {
                             'Vary': '*',
                           });
                           res.end("User unauthorized by apiobject: " + w);
+                          openRequests[requrl]--;
                         }
                       });
                     return;
@@ -1058,6 +1125,7 @@ module.exports = {
                     'Vary': '*',
                   });
                   res.end("Failed on function: " + e);
+                  openRequests[requrl]--;
                   return;
                 }
               });
@@ -1069,6 +1137,7 @@ module.exports = {
         console.log("Exception, Host:" + req.headers.host + ", URL:" + req.url + ", " + e);
         res.writeHead(500);
         res.end("Server error");
+        openRequests[requrl]--;
         return
       }
       
@@ -1080,6 +1149,7 @@ module.exports = {
       console.log("Not found, Host:" + req.headers.host + ", URL:" + req.url);
       res.writeHead(404);
       res.end("Not found!");
+      openRequests[requrl]--;
     };
 
     if (!(port > 0)) {
@@ -1116,6 +1186,15 @@ module.exports = {
       fssync.watch(key, reloadcertkey);
       fssync.watch(cert, reloadcertkey);
     }
+
+    var checkOpenRequests = setInterval(() => {
+      for(var i in openRequests) {
+        if (openRequests[i] == 0) {
+          delete openRequests[i];
+        }
+      }
+      console.log("openRequests:", JSON.stringify(openRequests));
+    }, 60000);
 
     var instance = { server, options, mimemapping, failcount };
     return instance;
