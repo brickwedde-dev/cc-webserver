@@ -216,13 +216,14 @@ module.exports = {
 
     const requestListener = function (req, res) {
       try {
+/*        
         if (failcount[req.socket.remoteAddress] > 10) {
           res.setHeader("Location", "https://" + req.socket.remoteAddress);
           res.writeHead(308);
           res.end("");
           return
         }
-
+*/
         var requrl = decodeURIComponent(req.url);
         var i = requrl.indexOf("?");
         if (i >= 0) {
