@@ -1188,16 +1188,7 @@ module.exports = {
       fssync.watch(cert, reloadcertkey);
     }
 
-    var checkOpenRequests = setInterval(() => {
-      for(var i in openRequests) {
-        if (openRequests[i] == 0) {
-          delete openRequests[i];
-        }
-      }
-      console.log("openRequests:", JSON.stringify(openRequests));
-    }, 60000);
-
-    var instance = { server, options, mimemapping, failcount };
+    var instance = { server, options, mimemapping, failcount, openRequests };
     return instance;
   },
 
