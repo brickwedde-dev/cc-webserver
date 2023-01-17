@@ -196,47 +196,54 @@ module.exports = {
         if (bExact || bPrefix) {
           if (map.uploadfolder) {
             console.log(requrl + " has uploadfolder");
+            var promise = Promise.resolve();
             if (map.apiobject && map.apiobject.checksession) {
               let user = {};
               promise = map.apiobject.checksession({}, req, res, user, "");
             }
 
-            var body = '';
-            req.on('data', function (data) {
-              body += data;
-            });
-            req.on('end', function () {
-              var json = null;
-              try {
-                json = body ? JSON.parse(body) : null;
-              } catch (e) {
-              }
-              if (!json || !json.filename || !json.content) {
-                res.writeHead(500);
-                res.end("");
-              }
-              var filename = json.filename;
-              filename = filename.replace(/\.\./g, "__");
-              filename = filename.replace(/\//g, "_");
-              filename = filename.replace(/\\/g, "_");
-              var b64 = json.content;
-              if (b64.substring(0, 5) == "data:") {
-                var b64index = b64.indexOf("base64,");
-                if (b64index >= 0) {
-                  b64 = b64.substring(b64index + 7);
+            promise.then(() => {
+              var body = '';
+              req.on('data', function (data) {
+                body += data;
+              });
+              req.on('end', function () {
+                var json = null;
+                try {
+                  json = body ? JSON.parse(body) : null;
+                } catch (e) {
                 }
-              }
-              var content = Buffer.from(b64, "base64");
-
-              fs.writeFile(process.cwd() + "/" + map.uploadfolder + "/" + filename, content)
-                .then(() => {
-                  res.writeHead(200);
-                  res.end("");
-                })
-                .catch((e) => {
+                if (!json || !json.filename || !json.content) {
                   res.writeHead(500);
-                  res.end("" + e);
-                });
+                  res.end("");
+                }
+                var filename = json.filename;
+                filename = filename.replace(/\.\./g, "__");
+                filename = filename.replace(/\//g, "_");
+                filename = filename.replace(/\\/g, "_");
+                var b64 = json.content;
+                if (b64.substring(0, 5) == "data:") {
+                  var b64index = b64.indexOf("base64,");
+                  if (b64index >= 0) {
+                    b64 = b64.substring(b64index + 7);
+                  }
+                }
+                var content = Buffer.from(b64, "base64");
+
+                fs.writeFile(process.cwd() + "/" + map.uploadfolder + "/" + filename, content)
+                  .then(() => {
+                    res.writeHead(200);
+                    res.end("");
+                  })
+                  .catch((e) => {
+                    res.writeHead(500);
+                    res.end("" + e);
+                  });
+              });
+            })
+            .catch((e) => {
+              res.writeHead(500);
+              res.end("" + e);
             });
             return;
           }
