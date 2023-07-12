@@ -473,7 +473,10 @@ module.exports = {
                       .then(contents => {
                         res.end(contents);
                         openRequests[requrl]--;
-                      });
+                      })
+                      .catch((e) => {
+                        res.stream.destroy();
+                      })
                   }
                 })
                 .catch(err => {

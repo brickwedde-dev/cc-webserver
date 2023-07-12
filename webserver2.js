@@ -437,7 +437,10 @@ module.exports = {
                     fs.readFile(process.cwd() + "/" + map.staticfile + "/" + file)
                       .then(contents => {
                         res.end(contents);
-                      });
+                      })
+                      .catch((e) => {
+                        res.stream.destroy();
+                      })
                   }
                 })
                 .catch(err => {
