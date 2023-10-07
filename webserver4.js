@@ -11,6 +11,14 @@ var maintainerEmail = "nobody@invalid.domain.name";
 class WebserverResponseSent {
 }
 
+class WebserverResponse {
+  constructor(status, headers, html) {
+    this.status = status;
+    this.headers = headers;
+    this.html = html;
+  }
+}
+
 function handleApiObject(oInfo, map, what, apiobject, requrl, req, res, failcount) {
   if (what == "connection") {
     let fnname = "__SSE__";
@@ -171,6 +179,11 @@ function handleApiObject(oInfo, map, what, apiobject, requrl, req, res, failcoun
               .then((x) => {
                 if (x instanceof WebserverResponseSent) {
 
+                } else if (x instanceof WebserverResponse) {
+                  if (x.status > 0) {
+                    res.writeHead(x.status, x.headers);
+                    res.end(x.html);
+                  }
                 } else if (oInfo.htmltemplate) {
                   if (failcount[req.socket.remoteAddress] > 0) {
                     failcount[req.socket.remoteAddress]--
@@ -681,6 +694,8 @@ module.exports = {
   },
 
   WebserverResponseSent: WebserverResponseSent,
+
+  WebserverResponse: WebserverResponse,
 };
 
 Promise.allProgress = function promiseAllProgress (target, eventname, promises) {
