@@ -83,8 +83,16 @@ function handleApiObject(oInfo, map, what, apiobject, requrl, req, res, failcoun
       if (!body) {
         var url = new URL(req.url, 'http://example.com');
         if (url.search.length > 1) {
-          var buf = Buffer.from(url.search.substring(1), 'base64');
-          body = buf.toString();
+          if (url.search.startsWith("?1?")) {
+            var buf = url.search.substring(3);
+            var a = buf.split("&");
+            for(var i = 0; i < a.length; i++) {
+              parameters.push(a[i].replace (/.*=/, ""));
+            }
+          } else {
+            var buf = Buffer.from(url.search.substring(1), 'base64');
+            body = buf.toString();
+          }
         }
       }
       if (body) {
