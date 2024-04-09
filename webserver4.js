@@ -19,6 +19,13 @@ class WebserverResponse {
   }
 }
 
+class CustomEvent {
+  constructor(name, detail) {
+    this.name = name;
+    this.detail = detail.detail;
+  }
+}
+
 function handleApiObject(oInfo, map, what, apiobject, requrl, req, res, failcount) {
   if (what == "connection") {
     let fnname = "__SSE__";
