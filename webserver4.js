@@ -19,6 +19,13 @@ class WebserverResponse {
   }
 }
 
+class CustomEvent {
+  constructor(name, detail) {
+    this.name = name;
+    this.detail = detail.detail;
+  }
+}
+
 function handleApiObject(oInfo, map, what, apiobject, requrl, req, res, failcount) {
   if (what == "connection") {
     let fnname = "__SSE__";
@@ -573,7 +580,28 @@ module.exports = {
                     fs.readFile(process.cwd() + "/" + map.staticfile + "/" + file)
                       .then(contents => {
                         res.end(contents);
-                      });
+                      })
+                      .catch((err) => {
+                        console.error("Read:", err);
+                        try {
+                          res.setHeader("X-Exception", `Error reading`);
+                        }
+                        catch (e) {
+                          console.error(e);
+                        }
+                        try {
+                          if (!failcount[req.socket.remoteAddress]) {
+                            failcount[req.socket.remoteAddress] = 0
+                          }
+                          failcount[req.socket.remoteAddress]++
+                          res.writeHead(404);
+                          res.end("" + map.staticfile + "/" + file + " not found");
+                        }
+                        catch (e) {
+                          res.stream.destroy();
+                        }
+
+                      })
                   }
                 })
                 .catch(err => {
