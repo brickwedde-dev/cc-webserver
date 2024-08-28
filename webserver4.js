@@ -255,7 +255,7 @@ function handleApiObject(oInfo, map, what, apiobject, requrl, req, res, failcoun
               if (failcount[req.socket.remoteAddress] > 0) {
                 failcount[req.socket.remoteAddress]--
               }
-              result = JSON.stringify(result)
+              result = JSON.stringify({session:result.session,session:result.session,user:result.user,})
               res.writeHead(200, {
                 'Content-Type': "application/json; charset=utf-8",
                 'Cache-Control': 'no-cache',
