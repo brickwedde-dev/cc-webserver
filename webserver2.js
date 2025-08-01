@@ -517,6 +517,135 @@ module.exports = {
               }
 
               var body = '';
+              if (req.headers['content-type'] && req.headers['content-type'].indexOf('application/octet-stream') == 0) {
+                body = [];
+                req.on('data', function (data) {
+                  console.log(requrl + " on data");
+                  body.push(data);
+                });
+                req.on('end', function () {
+                  console.log(requrl + " on end");
+                  body = Buffer.concat(body);
+                  var parameters = [body];
+                  if (what.substring(0, 6) == "method") {
+                    let fnname = what.substring(7);
+                    if (!map.apiobject[fnname]) {
+                      throw "Function " + fnname + " not found";
+                    }
+
+                    let oInfo = { };
+                    let promise = Promise.resolve();
+                    if (map.apiobject.checksession) {
+                      let user = {};
+                      promise = map.apiobject.checksession(oInfo, req, res, user, fnname);
+                    }
+                    parameters.unshift(oInfo);
+
+                    promise.then(() => {
+                      if (!map.entrycounter) {
+                        map.entrycounter = {};
+                      }
+                      map.entrycounter[fnname] = (map.entrycounter[fnname] || 0) + 1;
+                      oInfo.entrycounter = map.entrycounter[fnname];
+
+                      var result = null;
+                      try {
+                        result = map.apiobject[fnname].apply(map.apiobject, parameters);
+                      } catch (e) {
+                        console.error(e);
+                      }
+                      if (result instanceof Promise) {
+                        result
+                          .then((x) => {
+                            if (x instanceof WebserverResponseSent) {
+
+                            } else if (oInfo.htmltemplate) {
+                              if (failcount[req.socket.remoteAddress] > 0) {
+                                failcount[req.socket.remoteAddress]--
+                              }
+
+                              res.writeHead(200, {
+                                'Content-Type': "text/html",
+                                'Cache-Control': 'no-cache',
+                              });
+                              res.end(oInfo.htmltemplate.replace(/@@/, x));
+                            } else {
+                              if (failcount[req.socket.remoteAddress] > 0) {
+                                failcount[req.socket.remoteAddress]--
+                              }
+
+                              x = JSON.stringify(x);
+                              res.writeHead(200, {
+                                'Content-Type': "application/json; charset=utf-8",
+                                'Cache-Control': 'no-cache',
+                              });
+                              res.end(x);
+                            }
+                            map.entrycounter[fnname] = map.entrycounter[fnname] - 1;
+                          })
+                          .catch((e) => {
+                            map.entrycounter[fnname] = map.entrycounter[fnname] - 1;
+                            if (oInfo.htmltemplate) {
+                              res.writeHead(500, {
+                                'Content-Type': "text/html",
+                                'Cache-Control': 'no-cache',
+                              });
+                              res.end(oInfo.htmltemplate.replace(/@@/, e));
+                            } else {
+                              res.writeHead(500, {
+                                'Content-Type': "text/plain",
+                                'Cache-Control': 'no-cache',
+                                "X-Exception": "" + ("" + e).replace(/[^\x20-\x7F]/g, ""),
+                              });
+                              res.end("" + e);
+                            }
+                          });
+                      } else if (result instanceof WebserverResponseSent) {
+                        map.entrycounter[fnname] = map.entrycounter[fnname] - 1;
+                      } else {
+                        map.entrycounter[fnname] = map.entrycounter[fnname] - 1;
+                        if (oInfo.htmltemplate) {
+                          if (failcount[req.socket.remoteAddress] > 0) {
+                            failcount[req.socket.remoteAddress]--
+                          }
+                          res.writeHead(200, {
+                            'Content-Type': "text/html",
+                            'Cache-Control': 'no-cache',
+                          });
+                          res.end(oInfo.htmltemplate.replace(/@@/, result));
+                        } else {
+                          if (failcount[req.socket.remoteAddress] > 0) {
+                            failcount[req.socket.remoteAddress]--
+                          }
+                          result = JSON.stringify(result)
+                          res.writeHead(200, {
+                            'Content-Type': "application/json; charset=utf-8",
+                            'Cache-Control': 'no-cache',
+                          });
+                          res.end(result);
+                        }
+                      }
+                    })
+                      .catch((w) => {
+                        if (oInfo.htmltemplate) {
+                          res.writeHead(403, {
+                            'Content-Type': "text/html",
+                            'Cache-Control': 'no-cache',
+                          });
+                          res.end(oInfo.htmltemplate.replace(/@@/, "User unauthorized by apiobject: " + w));
+                        } else {
+                          res.writeHead(403, {
+                            'Content-Type': "text/plain",
+                            'Cache-Control': 'no-cache',
+                          });
+                          res.end("User unauthorized by apiobject: " + w);
+                        }
+                      });
+                    return;
+                  }
+                });
+                return;
+              }
               req.on('data', function (data) {
                 console.log(requrl + " on data");
                 body += data;
