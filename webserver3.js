@@ -53,11 +53,11 @@ function debounce(callback, timeout) {
     };
 }
 
-async function runLetsencryptv2 (domains, key, cert) {
-  if (fssync.existsSync(cert)) {
-    const cert = cert2json.parseFromFile(cert);
+async function runLetsencryptv2 (domains, key, certfile) {
+  if (fssync.existsSync(certfile)) {
+    const cert = cert2json.parseFromFile(certfile);
     var exp = new Date(cert.tbs.validity.notAfter).getTime();
-    var now15 = new Date().getTime() + 7 * 24 * 60 * 60 * 1000;
+    var now15 = new Date().getTime() + 9 * 24 * 60 * 60 * 1000;
     if (exp > now15) {
       console.log(`expire in ${(exp - now15) / (24 * 3600000)}`);
       return;
@@ -140,8 +140,8 @@ async function runLetsencryptv2 (domains, key, cert) {
 
   var fullchain = pems.cert + '\n' + pems.chain + '\n';
 
-  await fs.writeFile(cert, fullchain, 'ascii');
-  console.info(`wrote ${cert}`);
+  await fs.writeFile(certfile, fullchain, 'ascii');
+  console.info(`wrote ${certfile}`);
 }
 
 function reloadcert (server, keyfile, certfile) {
@@ -1184,6 +1184,7 @@ module.exports = {
 
     if (key && cert) {
       if (domains) {
+        setTimeout(() => { runLetsencryptv2 (domains, key, cert); }, 1000);
         setInterval(() => { runLetsencryptv2 (domains, key, cert); }, 24 * 3600 * 1000);
       }
       const reloadcertkey = debounce(() => { console.log("cert files refreshed"); reloadcert(server, key, cert); }, 10000);
