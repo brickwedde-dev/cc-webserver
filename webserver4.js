@@ -598,7 +598,9 @@ module.exports = {
                           res.end("" + map.staticfile + "/" + file + " not found");
                         }
                         catch (e) {
-                          res.stream.destroy();
+                          if (res.stream) {
+                            res.stream.destroy();
+                          }
                         }
 
                       })
