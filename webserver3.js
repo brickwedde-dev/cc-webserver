@@ -481,7 +481,12 @@ module.exports = {
                 })
                 .catch(err => {
 //                  console.error(err);
-                  res.setHeader("X-Exception", `${err}`);
+                  try {
+                    res.setHeader("X-Exception", `${err}`);
+                  }
+                  catch (e) {
+                    console.error(e);
+                  }
                   try {
                     if (!failcount[req.socket.remoteAddress]) {
                       failcount[req.socket.remoteAddress] = 0
