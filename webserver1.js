@@ -157,6 +157,7 @@ module.exports = {
       "txt": "text/plain",
       "gif": "image/gif",
       "png": "image/png",
+      "svg" : "image/svg+xml",
       "jpeg": "image/jpeg",
       "jpg": "image/jpeg",
       "pdf": "application/pdf",

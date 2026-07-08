@@ -2,6 +2,7 @@ const http = require("http");
 const http2 = require("http2");
 const fs = require('fs').promises;
 const fssync = require('fs');
+const stream = require('stream');
 const pkg = require.main.require('./package.json');
 const ACME = require('acme');
 const tls = require('tls');
@@ -39,6 +40,267 @@ class CustomEvent {
 }
 
 class WebserverResponseSent {
+}
+
+function parseDisposition(line) {
+    const disposition = {};
+    const tokens = line.trim().split('; ')
+    tokens.forEach((element, index) => {
+        if (index === 0) return;
+        const equalityIndex = element.indexOf('=');
+        disposition[element.substring(0, equalityIndex)] = element.substring(
+            equalityIndex + 2, element.length - 1
+        );
+    });
+    return disposition;
+}
+
+function parseContentType(line) {
+    const tokens = line.trim().split(':')
+    const type = tokens[1]?.trim();
+    return type;
+}
+
+function shiftLeft(buff, data) {
+    let shiftedOutData = buff[0];
+
+    buff.copyWithin(0, 1);
+    buff[buff.length - 1] = data;
+
+    // If data is x00, return an empty buffer
+    if (shiftedOutData === 0) return Buffer.alloc(0);
+
+    return Buffer.from([shiftedOutData]);
+}
+
+class BoundaryDetectorStream extends stream.Transform {
+  constructor(boundary) {
+    super({ objectMode: true });
+    if (typeof(boundary) === 'string') {
+        boundary = Uint8Array.from(boundary.split('').map(c => c.charCodeAt(0)));
+    }
+
+    var crlf = Uint8Array.from([13, 10]);
+    this.boundary = new Uint8Array(boundary.length + crlf.length);
+    this.boundary.set(crlf);
+    this.boundary.set(boundary, crlf.length);
+
+    this.debugdump = fssync.openSync("/tmp/boundarydebugdump.bin", "w");
+  }
+
+  data = Buffer.from([13, 10]);
+  boundary;
+  insideBoundary = -1;
+  totalcount = 0;
+  directlyAfterBoundary = false;
+
+  _transform (chunk, _enc, callback) {
+    if (typeof chunk === "string") {
+      chunk = Buffer.from(chunk);
+    }
+    this.data = Buffer.concat([this.data, chunk]);
+    if (this.directlyAfterBoundary && this.data.length >= 2) {
+      if (this.data[0] == 45 && this.data[1] == 45) {
+        this.insideBoundary = 1;
+        this.data = this.data.subarray(2);
+        //console.log("!!!!!!!!!!!! -- after boundary removed @" + this.totalcount);
+      }
+    }
+    if (this.directlyAfterBoundary && this.data.length >= 2) {
+      if (this.data[0] == 13 && this.data[1] == 10) {
+        this.data = this.data.subarray(2);
+      }
+      this.directlyAfterBoundary = false;
+    }
+
+    if (!this.directlyAfterBoundary) {
+      while(true) {
+        if (this.directlyAfterBoundary && this.data.length >= 2) {
+          if (this.data[0] == 45 && this.data[1] == 45) {
+            this.insideBoundary = 1;
+            this.data = this.data.subarray(2);
+            //console.log("!!!!!!!!!!!! -- after boundary removed @" + this.totalcount);
+          }
+        }
+        if (this.directlyAfterBoundary && this.data.length >= 2) {
+          if (this.data[0] == 13 && this.data[1] == 10) {
+            this.data = this.data.subarray(2);
+            //console.log("!!!!!!!!!!!! CRLF after boundary removed 2 @" + this.totalcount);
+          }
+          this.directlyAfterBoundary = false;
+        }
+
+        var indexOf = this.data.indexOf(this.boundary);
+        if (indexOf >= 0) {
+          if (this.insideBoundary < 0) {
+            this.insideBoundary = 0;
+            this.data = this.data.subarray(indexOf + this.boundary.length);
+            this.push(new HttpHeader("start"));
+            //console.log("!!!!!!!!!!!! Start found at " + (indexOf + this.totalcount));
+          } else {
+            let data1 = this.data.subarray(0, indexOf);
+            //console.log("!!!!!!!!!!!! End found at " + (indexOf + this.totalcount));
+            fssync.writeSync(this.debugdump, data1);
+            this.push(data1);
+            this.push(new HttpHeader("end"));
+            this.data = this.data.subarray(indexOf + this.boundary.length);
+            this.totalcount += data1.length + this.boundary.length;
+          }
+          this.directlyAfterBoundary = true;
+        } else {
+          if (this.insideBoundary == 0) {
+            if (this.data.length > this.boundary.length) {
+              let data1 = this.data.subarray(0, this.data.length - this.boundary.length);
+              this.totalcount += data1.length;
+              fssync.writeSync(this.debugdump, data1);
+              this.data = this.data.subarray(this.data.length - this.boundary.length);
+              this.push(data1);
+            }
+          }
+          break;
+        }
+      }
+    }
+    if (this.insideBoundary < 0) {
+      if (this.data.length > this.boundary.length * 2) {
+        this.data = this.data.subarray(this.data.length - this.boundary.length * 2);
+      }
+    }
+    callback();
+  }
+
+  _flush(callback) {
+    //console.log("!!!!!!!!!!!! BoundaryDetectorStream::flush");
+
+    if (this.insideBoundary != 1) {
+      if (this.directlyAfterBoundary && this.data.length >= 2) {
+        if (this.data[0] == 45 && this.data[1] == 45) {
+          this.insideBoundary = 1;
+          this.data = this.data.subarray(2);
+          //console.log("!!!!!!!!!!!! -- after boundary removed @" + this.totalcount);
+        }
+      }
+      if (this.directlyAfterBoundary && this.data.length >= 2) {
+        if (this.data[0] == 13 && this.data[1] == 10) {
+          this.data = this.data.subarray(2);
+        }
+        this.directlyAfterBoundary = false;
+      }
+
+      if (this.data.length > 0) {
+        this.push(this.data);
+        fssync.writeSync(this.debugdump, this.data);
+        this.data = Buffer.from([13, 10]);
+      }
+    } 
+    fssync.closeSync(this.debugdump);
+    callback();
+  }
+}
+
+class HttpHeader {
+  constructor(line) {
+    var i = line.indexOf(":");
+    this.name = line.substring(0, i).trim();
+    this.value = line.substring(i + 1).trim();
+    console.log(`!!!!!!!!!!!! New header '${this.name}': '${this.value}'`);
+  }
+}
+
+class MimeParserStream extends stream.Transform {
+  constructor() {
+    super({ objectMode: true });
+    this.debugdump = fssync.openSync("/tmp/mimedebugdump.bin", "w");
+  }
+
+  dataStarted = false;
+  hasHeader = false;
+  lastLine = undefined;
+  data = Buffer.alloc(0);
+  newLine = Buffer.from("\r\n");
+  totalwritten = 0;
+
+  _transform (chunk, _enc, callback) {
+    if (chunk instanceof HttpHeader) {
+      //console.log("!!!!!!!!!!!! HttpHeader chunk received " + JSON.stringify(chunk));
+
+      if (this.data.length > 0) {
+        this.push(this.data);
+        this.data = Buffer.alloc(0);
+      }
+      this.push(chunk);
+    } else {
+      //console.log("!!!!!!!!!!!! Buffer chunk received " + chunk.length);
+      this.data = Buffer.concat([this.data, chunk]);
+      while(true) {
+        if (!this.dataStarted) {
+          var indexOf = this.data.indexOf(this.newLine);
+          if (indexOf >= 0) {
+            var line = this.data.subarray(0, indexOf);
+            var sLine = line.toString()
+            this.data = this.data.subarray(indexOf + this.newLine.length);
+            if (sLine === "") {
+              if (this.hasHeader) {
+                //console.log("!!!!!!!!!!!! Data start found")
+                this.dataStarted = true;
+              }
+            } else {
+              this.hasHeader = true;
+              this.push(new HttpHeader(sLine));
+            }
+          }
+        } else {
+          this.totalwritten += this.data.length;
+          //console.log("!!!!!!!!!!!! Data chunk found, total:" + this.totalwritten);
+          this.push(this.data);
+          fssync.writeSync(this.debugdump, this.data);
+
+          this.data = Buffer.alloc(0);
+          break;
+        }
+      }
+    }
+    callback();
+  }
+
+  _flush(callback) {
+    //console.log("!!!!!!!!!!!! MimeParserStream::flush");
+    if (this.data.length > 0) {
+      this.push(this.data);
+      fssync.writeSync(this.debugdump, this.data);
+      this.data = Buffer.alloc(0);
+    }
+
+    fssync.closeSync(this.debugdump);
+
+    callback();
+  }
+}
+
+//var mimep = new MimeParserStream();
+//var x = new BoundaryDetectorStream("--bound");
+//x.write("blabla--bounblabla\r\n--bound\r\nContent-Type: text/plain\r\n\r\nblabla\r\nblubb\r\n--bound--\r\n");
+//x.pipe(mimep);
+//
+//mimep.on("data", (e) => {
+//  if (e instanceof HttpHeader) {
+//    console.log("!!!!!!!!!!!! Mime Header: " + e.name + ": " + e.value);
+//  } else {
+//    console.log("!!!!!!!!!!!! Mime Data: " + e);
+//  }
+//});
+//mimep.on("end", () => {
+//  console.log("!!!!!!!!!!!! Mime End");
+//});
+
+function createFormStream(inputstream, boundary) {
+  return inputstream
+    .pipe(
+      new BoundaryDetectorStream(boundary)
+    )
+    .pipe(
+      new MimeParserStream()
+    );
 }
 
 module.exports = {
@@ -181,6 +443,7 @@ module.exports = {
       "txt": "text/plain",
       "gif": "image/gif",
       "png": "image/png",
+      "svg" : "image/svg+xml",
       "jpeg": "image/jpeg",
       "jpg": "image/jpeg",
       "pdf": "application/pdf",
@@ -516,6 +779,170 @@ module.exports = {
                 return;
               }
 
+              if(req.headers['x-upload']) {
+                var parameters = [];
+                try {
+                  var url = new URL(req.url, 'http://example.com');
+                  if (url.search.length > 1) {
+                    var buf = Buffer.from(url.search.substring(1), 'base64');
+                    parameters = JSON.parse(buf.toString());
+                    if (!parameters || typeof parameters != "object" || !(parameters instanceof Array)) {
+                      throw `Invalid parameters ${JSON.stringify(parameters)} ${typeof parameters}`;
+                    }
+                  }
+                } catch (e) {
+                  res.writeHead(500, {
+                    'Content-Type': "text/plain",
+                    'Cache-Control': 'no-cache',
+                  });
+                  res.end("Failed on url params: " + e);
+                  return;
+                }
+
+                try {
+                  if (what.substring(0, 6) == "method") {
+                    let fnname = what.substring(7);
+                    if (!map.apiobject[fnname]) {
+                      throw "Function " + fnname + " not found";
+                    }
+
+                    let oInfo = { };
+                    let promise = Promise.resolve();
+                    if (map.apiobject.checksession) {
+                      let user = {};
+                      promise = map.apiobject.checksession(oInfo, req, res, user, fnname);
+                    }
+                    parameters.unshift(oInfo);
+
+                    let contentTypeHeader = req.headers["content-type"];
+                    let boundary = "--" + contentTypeHeader.split("; ")[1].replace("boundary=","");
+    
+                    oInfo.formstream = createFormStream(req, boundary);
+
+                    //oInfo.bodystream = new stream.PassThrough();
+
+                    //req.pipe(oInfo.bodystream);
+
+/*                    req.on('data', (chunk) => {
+                      oInfo.bodystream.push(chunk);
+                    });
+
+                    req.on('end', () => {
+                      oInfo.bodystream.push(null);
+                    });*/
+
+                    promise.then(() => {
+                      if (!map.entrycounter) {
+                        map.entrycounter = {};
+                      }
+                      map.entrycounter[fnname] = (map.entrycounter[fnname] || 0) + 1;
+                      oInfo.entrycounter = map.entrycounter[fnname];
+
+                      var result = null;
+                      try {
+                        result = map.apiobject[fnname].apply(map.apiobject, parameters);
+                      } catch (e) {
+                        console.error(e);
+                      }
+                      if (result instanceof Promise) {
+                        result
+                          .then((x) => {
+                            if (x instanceof WebserverResponseSent) {
+
+                            } else if (oInfo.htmltemplate) {
+                              if (failcount[req.socket.remoteAddress] > 0) {
+                                failcount[req.socket.remoteAddress]--
+                              }
+
+                              res.writeHead(200, {
+                                'Content-Type': "text/html",
+                                'Cache-Control': 'no-cache',
+                              });
+                              res.end(oInfo.htmltemplate.replace(/@@/, x));
+                            } else {
+                              if (failcount[req.socket.remoteAddress] > 0) {
+                                failcount[req.socket.remoteAddress]--
+                              }
+
+                              x = JSON.stringify(x);
+                              res.writeHead(200, {
+                                'Content-Type': "application/json; charset=utf-8",
+                                'Cache-Control': 'no-cache',
+                              });
+                              res.end(x);
+                            }
+                            map.entrycounter[fnname] = map.entrycounter[fnname] - 1;
+                          })
+                          .catch((e) => {
+                            map.entrycounter[fnname] = map.entrycounter[fnname] - 1;
+                            if (oInfo.htmltemplate) {
+                              res.writeHead(500, {
+                                'Content-Type': "text/html",
+                                'Cache-Control': 'no-cache',
+                              });
+                              res.end(oInfo.htmltemplate.replace(/@@/, e));
+                            } else {
+                              res.writeHead(500, {
+                                'Content-Type': "text/plain",
+                                'Cache-Control': 'no-cache',
+                                "X-Exception": "" + ("" + e).replace(/[^\x20-\x7F]/g, ""),
+                              });
+                              res.end("" + e);
+                            }
+                          });
+                      } else if (result instanceof WebserverResponseSent) {
+                        map.entrycounter[fnname] = map.entrycounter[fnname] - 1;
+                      } else {
+                        map.entrycounter[fnname] = map.entrycounter[fnname] - 1;
+                        if (oInfo.htmltemplate) {
+                          if (failcount[req.socket.remoteAddress] > 0) {
+                            failcount[req.socket.remoteAddress]--
+                          }
+                          res.writeHead(200, {
+                            'Content-Type': "text/html",
+                            'Cache-Control': 'no-cache',
+                          });
+                          res.end(oInfo.htmltemplate.replace(/@@/, result));
+                        } else {
+                          if (failcount[req.socket.remoteAddress] > 0) {
+                            failcount[req.socket.remoteAddress]--
+                          }
+                          result = JSON.stringify(result)
+                          res.writeHead(200, {
+                            'Content-Type': "application/json; charset=utf-8",
+                            'Cache-Control': 'no-cache',
+                          });
+                          res.end(result);
+                        }
+                      }
+                    })
+                    .catch((w) => {
+                      if (oInfo.htmltemplate) {
+                        res.writeHead(403, {
+                          'Content-Type': "text/html",
+                          'Cache-Control': 'no-cache',
+                        });
+                        res.end(oInfo.htmltemplate.replace(/@@/, "User unauthorized by apiobject: " + w));
+                      } else {
+                        res.writeHead(403, {
+                          'Content-Type': "text/plain",
+                          'Cache-Control': 'no-cache',
+                        });
+                        res.end("User unauthorized by apiobject: " + w);
+                      }
+                    });
+                    return;
+                  }
+                } catch (e) {
+                  res.writeHead(500, {
+                    'Content-Type': "text/plain",
+                    'Cache-Control': 'no-cache',
+                  });
+                  res.end("Failed on api call: " + e);
+                  return;
+                }
+              }
+
               var body = '';
               if (req.headers['content-type'] && req.headers['content-type'].indexOf('application/octet-stream') == 0) {
                 body = [];
@@ -626,21 +1053,21 @@ module.exports = {
                         }
                       }
                     })
-                      .catch((w) => {
-                        if (oInfo.htmltemplate) {
-                          res.writeHead(403, {
-                            'Content-Type': "text/html",
-                            'Cache-Control': 'no-cache',
-                          });
-                          res.end(oInfo.htmltemplate.replace(/@@/, "User unauthorized by apiobject: " + w));
-                        } else {
-                          res.writeHead(403, {
-                            'Content-Type': "text/plain",
-                            'Cache-Control': 'no-cache',
-                          });
-                          res.end("User unauthorized by apiobject: " + w);
-                        }
-                      });
+                    .catch((w) => {
+                      if (oInfo.htmltemplate) {
+                        res.writeHead(403, {
+                          'Content-Type': "text/html",
+                          'Cache-Control': 'no-cache',
+                        });
+                        res.end(oInfo.htmltemplate.replace(/@@/, "User unauthorized by apiobject: " + w));
+                      } else {
+                        res.writeHead(403, {
+                          'Content-Type': "text/plain",
+                          'Cache-Control': 'no-cache',
+                        });
+                        res.end("User unauthorized by apiobject: " + w);
+                      }
+                    });
                     return;
                   }
                 });
@@ -663,8 +1090,8 @@ module.exports = {
                   }
                   if (body) {
                     parameters = JSON.parse(body);
-                    if (!parameters || typeof parameters != "object") {
-                      throw `Invalid ${JSON.stringify(parameters)} ${typeof parameters}`;
+                    if (!parameters || typeof parameters != "object" || !(parameters instanceof Array)) {
+                      throw `Invalid parameters ${JSON.stringify(parameters)} ${typeof parameters}`;
                     }
                   }
                 } catch (e) {
@@ -1217,6 +1644,7 @@ module.exports = {
   InstantiateClass: InstantiateClass,
   CustomEvent: CustomEvent,
   WebserverResponseSent: WebserverResponseSent,
+  HttpHeader: HttpHeader,
 };
 
 Promise.allProgress = function promiseAllProgress (target, eventname, promises) {
