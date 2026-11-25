@@ -1084,8 +1084,16 @@ module.exports = {
                   if (!body) {
                     var url = new URL(req.url, 'http://example.com');
                     if (url.search.length > 1) {
-                      var buf = Buffer.from(url.search.substring(1), 'base64');
-                      body = buf.toString();
+                      var search = url.search;
+                      if (search.startsWith("?bearer=") || search.startsWith("?data=")) {
+                        var query = new URLSearchParams(search);
+                        var data = query.get("data");
+                        var buf = Buffer.from(data, 'base64');
+                        body = buf.toString();
+                      } else {
+                        var buf = Buffer.from(search.substring(1), 'base64');
+                        body = buf.toString();
+                      }
                     }
                   }
                   if (body) {
